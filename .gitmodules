@@ -1,0 +1,6 @@
+[submodule "tracing_compiler"]
+    url = https://github.com/dyn-tracing/tracing_compiler
+    path = tracing_compiler
+[submodule "tracing_sim"]
+    url = https://github.com/dyn-tracing/tracing_sim
+    path = tracing_sim
