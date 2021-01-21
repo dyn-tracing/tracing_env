@@ -258,6 +258,12 @@ def undeploy_filter():
     return result
 
 
+def install_modded_bookinfo():
+    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-mod-filter.yaml "
+    result = util.exec_process(cmd)
+    return result
+
+
 def deploy_filter(filter_dir):
     # check if the config map already exists
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
@@ -273,9 +279,8 @@ def deploy_filter(filter_dir):
     else:
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
     # update the containers with the config map
-    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-mod-filter.yaml "
     # FIXME: There is an issue with the yaml currently, so we ignore the result
-    _ = util.exec_process(cmd)
+    _ = install_modded_bookinfo()
     result = bookinfo_wait()
     if result != util.EXIT_SUCCESS:
         return result
@@ -324,7 +329,7 @@ def handle_filter(args):
         return undeploy_filter()
     if args.refresh_filter:
         return refresh_filter(args.filter_dir)
-    log.warning("No command line input provided. Do nothing.")
+    log.warning("No command line input provided. Doing nothing.")
     return util.EXIT_SUCCESS
 
 

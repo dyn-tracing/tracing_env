@@ -1,0 +1,13 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install
+      run: |
+        ./tools/setup.sh
+    - name: Test with pytest
+      run: |
+        python3 -m pytest test.py -vrf
