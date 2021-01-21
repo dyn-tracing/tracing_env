@@ -145,7 +145,7 @@ def start_kubernetes(platform, multizonal):
         else:
             cmd += "--zone=us-central1-a "
     else:
-        cmd = "minikube start --memory=8192 --cpus=4 "
+        cmd = "minikube start --memory=4096 --cpus=4 "
     result = util.exec_process(cmd)
     return result
 
