@@ -4,6 +4,7 @@
 FILE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd ${FILE_DIR}/..
 ENV_DIR="${FILE_DIR}/kubernetes_env"
+COMPILER_DIR="${FILE_DIR}/tracing_compiler"
 
 # basics
 sudo apt-get install -y apt-transport-https gnupg2 curl
@@ -42,6 +43,9 @@ sudo apt update && sudo apt install bazel
 
 # need prometheus for the API
 pip3 install --user prometheus-api-client
+# and pytest for testing
+
+pip3 install --user pytest
 # download and unpack istio
 cd $ENV_DIR && curl -L https://istio.io/downloadIstio | \
     ISTIO_VERSION=1.8.0 TARGET_ARCH=x86_64 sh - && cd -
@@ -57,3 +61,8 @@ make -C tools/parallel_curl/
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 set PATH $HOME/.cargo/bin $PATH
 rustup toolchain install nightly
+
+# now start building the compiler
+cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
+
+echo "Done with setup."
