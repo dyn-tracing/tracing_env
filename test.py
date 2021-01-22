@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from shutil import copytree
+from shutil import copytree, rmtree
 
 import pytest
 import kubernetes_env.util as util
@@ -110,8 +110,8 @@ class TestClassSimulator:
         assert result == util.EXIT_SUCCESS
 
         # move the directory in the simulator directory
-        util.check_dir(self.target_filter_dir)
-        copytree(self.filter_dir, self.target_filter_dir, dirs_exist_ok=True)
+        rmtree(self.target_filter_dir)
+        copytree(self.filter_dir, self.target_filter_dir)
 
         # build the filter
         cmd = "cargo build "

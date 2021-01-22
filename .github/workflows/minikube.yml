@@ -9,7 +9,9 @@ jobs:
   test:
     runs-on: ubuntu-18.04
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Install
       run: |
         ./tools/setup_kube.sh
