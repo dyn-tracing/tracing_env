@@ -35,7 +35,7 @@ KUBE_QUERIES = [
     pytest.param("return_height.cql", []),
 ]
 # test names
-SIM_IDS = [i.values[0] for i in KUBE_QUERIES]
+KUBE_IDS = [i.values[0] for i in KUBE_QUERIES]
 
 SIM_QUERIES = [
     pytest.param("count.cql", ["count"]),
