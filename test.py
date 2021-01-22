@@ -110,7 +110,7 @@ class TestClassSimulator:
         assert result == util.EXIT_SUCCESS
 
         # move the directory in the simulator directory
-        rmtree(self.target_filter_dir)
+        rmtree(self.target_filter_dir, ignore_errors=True)
         copytree(self.filter_dir, self.target_filter_dir)
 
         # build the filter
@@ -124,3 +124,5 @@ class TestClassSimulator:
         cmd += f"-p {self.target_filter_dir}/target/debug/librust_filter"
         result = util.exec_process(cmd)
         assert result == util.EXIT_SUCCESS
+        # cleanup
+        rmtree(self.target_filter_dir)
