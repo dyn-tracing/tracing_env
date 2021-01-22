@@ -4,6 +4,7 @@
 FILE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ENV_DIR="${FILE_DIR}/../kubernetes_env"
 COMPILER_DIR="${FILE_DIR}/../tracing_compiler"
+SIMULATOR_DIR="${FILE_DIR}/../tracing_sim"
 cd ${FILE_DIR}/..
 
 # basics
@@ -64,5 +65,7 @@ rustup toolchain install nightly
 
 # now start building the compiler
 cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
+# and also build the simulator
+cargo build --manifest-path ${SIMULATOR_DIR}/Cargo.toml
 
 echo "Done with setup."
