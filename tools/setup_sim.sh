@@ -11,6 +11,8 @@ cd ${FILE_DIR}/..
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 set PATH $HOME/.cargo/bin $PATH
 rustup toolchain install nightly
+# we need to use nightly as default
+rustup default nightly
 
 # Now start building the compiler
 cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
