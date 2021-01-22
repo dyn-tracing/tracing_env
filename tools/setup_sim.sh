@@ -21,6 +21,7 @@ cargo build --manifest-path ${SIMULATOR_DIR}/Cargo.toml
 
 # Install pytest for testing
 pip3 install --user pytest
-
+# Install requests for API requests (needed here because of imports)
+pip3 install --user requests
 
 echo "Done with simulator setup."
