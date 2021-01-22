@@ -56,6 +56,6 @@ curl -L https://github.com/fortio/fortio/releases/download/v1.11.4/fortio-linux_
 make -C tools/parallel_curl/
 
 # Remaining core deps
-${FILE_DIR}/setup_sim
+${FILE_DIR}/setup_sim.sh
 
 echo "Done with Kubernetes setup."
