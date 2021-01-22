@@ -15,7 +15,6 @@ jobs:
     - name: Install
       run: |
         ./tools/setup_kube.sh
-        pip3 install --user pytest
     - name: Test with pytest
       run: |
         python3 -m pytest test.py -vrf -k "Kubernetes"

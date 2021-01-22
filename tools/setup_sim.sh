@@ -7,14 +7,18 @@ COMPILER_DIR="${FILE_DIR}/../tracing_compiler"
 SIMULATOR_DIR="${FILE_DIR}/../tracing_sim"
 cd ${FILE_DIR}/..
 
-# rust
+# Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 set PATH $HOME/.cargo/bin $PATH
 rustup toolchain install nightly
 
-# now start building the compiler
+# Now start building the compiler
 cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
 # and also build the simulator
 cargo build --manifest-path ${SIMULATOR_DIR}/Cargo.toml
+
+# Install pytest for testing
+pip3 install --user pytest
+
 
 echo "Done with simulator setup."
