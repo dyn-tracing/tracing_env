@@ -18,7 +18,7 @@ TBD
 ### Python Dependencies
 - `prometheus-api-client` to query Prometheus
 
-## The Dyntracing Compiler
+## The Dyntracing Compiler (dtc)
 
 ### Building the Compiler
 The compiler can be build with `cargo build`.

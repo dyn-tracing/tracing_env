@@ -1,0 +1,24 @@
+name: test-simulator
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+          os: [macos-latest, ubuntu-18.04]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Install
+      run: |
+        ./tools/setup_sim.sh
+    - name: Test with pytest
+      run: |
+        python3 -m pytest test.py -vrf
