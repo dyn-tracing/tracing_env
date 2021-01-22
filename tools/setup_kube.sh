@@ -44,9 +44,6 @@ sudo apt update && sudo apt install bazel
 
 # need prometheus for the API
 pip3 install --user prometheus-api-client
-# and pytest for testing
-pip3 install --user pytest
-
 # download and unpack istio
 cd $ENV_DIR && curl -L https://istio.io/downloadIstio | \
     ISTIO_VERSION=1.8.0 TARGET_ARCH=x86_64 sh - && cd -
@@ -58,14 +55,4 @@ curl -L https://github.com/fortio/fortio/releases/download/v1.11.4/fortio-linux_
 # build the burst tool
 make -C tools/parallel_curl/
 
-# rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-set PATH $HOME/.cargo/bin $PATH
-rustup toolchain install nightly
-
-# now start building the compiler
-cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
-# and also build the simulator
-cargo build --manifest-path ${SIMULATOR_DIR}/Cargo.toml
-
-echo "Done with setup."
+echo "Done with Kubernetes setup."

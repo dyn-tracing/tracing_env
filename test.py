@@ -93,6 +93,7 @@ class TestClassSimulator:
     filter_dir = COMPILER_DIR.joinpath("rust_filter")
     target_filter_dir = SIM_DIR.joinpath("libs/rust_filter")
 
+    @pytest.mark.run_default
     @pytest.mark.parametrize("query_file,query_udfs", SIM_QUERIES, ids=SIM_IDS)
     def test_deployment(self, query_file, query_udfs):
         # generate the filter code

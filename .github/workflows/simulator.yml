@@ -1,4 +1,4 @@
-name: test-kubernetes
+name: test-simulator
 on:
   push:
     branches: [ master ]
@@ -12,8 +12,8 @@ jobs:
     - uses: actions/checkout@v1
     - name: Install
       run: |
-        ./tools/setup_kube.sh
+        ./tools/setup_sim.sh
         pip3 install --user pytest
     - name: Test with pytest
       run: |
-        python3 -m pytest test.py -vrf -k "Kubernetes"
+        python3 -m pytest test.py -vrf
