@@ -1,10 +1,10 @@
 import logging
 from pathlib import Path
-from shutil import copytree, rmtree
 
 import pytest
 import kubernetes_env.util as util
 import kubernetes_env.kube_env as kube_env
+from test_filter import check_filter
 
 # configure logging
 log = logging.getLogger(__name__)
@@ -18,9 +18,7 @@ logging.getLogger().addHandler(stderr_log)
 
 # some folder definitions
 FILE_DIR = Path.resolve(Path(__file__)).parent
-SIM_DIR = FILE_DIR.joinpath("tracing_sim")
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
-ENV_DIR = FILE_DIR.joinpath("kubernetes_env")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
@@ -90,39 +88,9 @@ class TestClassKubernetes:
 
 
 class TestClassSimulator:
-    filter_dir = COMPILER_DIR.joinpath("rust_filter")
-    target_filter_dir = SIM_DIR.joinpath("libs/rust_filter")
 
     @pytest.mark.run_default
     @pytest.mark.parametrize("query_file,query_udfs", SIM_QUERIES, ids=SIM_IDS)
     def test_deployment(self, query_file, query_udfs):
-        # generate the filter code
-        cmd = f"{COMPILER_BINARY} "
-        cmd += f"-q {QUERY_DIR.joinpath(query_file)} "
-        for query_udf in query_udfs:
-            udf_file = UDF_DIR.joinpath(query_udf)
-            udf_file = udf_file.with_suffix(".rs")
-            cmd += f"-u {udf_file} "
-        cmd += f"-o {self.filter_dir.joinpath('src/filter.rs')} "
-        # generate code for the simulator
-        cmd += "-c sim "
-        result = util.exec_process(cmd)
+        result = check_filter(query_file, query_udfs)
         assert result == util.EXIT_SUCCESS
-
-        # move the directory in the simulator directory
-        rmtree(self.target_filter_dir, ignore_errors=True)
-        copytree(self.filter_dir, self.target_filter_dir)
-
-        # build the filter
-        cmd = "cargo build "
-        cmd += f"--manifest-path {self.target_filter_dir}/Cargo.toml"
-        result = util.exec_process(cmd)
-        assert result == util.EXIT_SUCCESS
-
-        # run the filter in the simulator
-        cmd = f"cargo run --manifest-path {SIM_DIR}/Cargo.toml -- "
-        cmd += f"-p {self.target_filter_dir}/target/debug/librust_filter"
-        result = util.exec_process(cmd)
-        assert result == util.EXIT_SUCCESS
-        # cleanup
-        rmtree(self.target_filter_dir)
