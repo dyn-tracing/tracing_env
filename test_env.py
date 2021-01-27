@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import kubernetes_env.util as util
 import kubernetes_env.kube_env as kube_env
-from test_filter import check_filter
+from check_filter import check_filter
 
 # configure logging
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ SIM_QUERIES = [
                  "histogram"], marks=pytest.mark.xfail),
     pytest.param("response_code_count.cql", ["count"]),
     pytest.param("response_size_avg.cql", ["avg"], marks=pytest.mark.xfail),
-    pytest.param("return.cql", [], marks=pytest.mark.xfail),
+    pytest.param("return.cql", []),
     pytest.param("return_height.cql", [], marks=pytest.mark.xfail),
 ]
 # test names
@@ -70,6 +70,7 @@ class TestClassKubernetes:
             udf_file = UDF_DIR.joinpath(query_udf)
             udf_file = udf_file.with_suffix(".cc")
             cmd += f"-u {udf_file} "
+        cmd += "-r productpage-v1 "
         result = util.exec_process(cmd)
         assert result == util.EXIT_SUCCESS
         # build the filter

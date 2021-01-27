@@ -21,4 +21,4 @@ jobs:
         ./tools/setup_sim.sh
     - name: Test with pytest
       run: |
-        python3 -m pytest test.py -vrf
+        python3 -m pytest -vrf
