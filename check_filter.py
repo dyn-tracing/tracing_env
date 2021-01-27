@@ -40,14 +40,14 @@ def check_filter(query_file, query_udfs):
     copytree(filter_dir, target_filter_dir)
 
     # build the filter
-    cmd = "cargo build "
+    cmd = "cargo +nightly build "
     cmd += f"--manifest-path {target_filter_dir}/Cargo.toml"
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
 
     # run the filter in the simulator
-    cmd = f"cargo run --manifest-path {SIM_DIR}/Cargo.toml -- "
+    cmd = f"cargo +nightly run --manifest-path {SIM_DIR}/Cargo.toml -- "
     cmd += f"-p {target_filter_dir}/target/debug/librust_filter"
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
