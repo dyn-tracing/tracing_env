@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 import kubernetes_env.util as util
 import kubernetes_env.kube_env as kube_env
-from test_filter import check_filter
+from check_filter import check_filter
 
 # configure logging
 log = logging.getLogger(__name__)
