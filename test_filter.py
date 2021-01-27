@@ -27,9 +27,10 @@ def check_filter(query_file, query_udfs):
         udf_file = UDF_DIR.joinpath(query_udf)
         udf_file = udf_file.with_suffix(".rs")
         cmd += f"-u {udf_file} "
-    cmd += f"-o {filter_dir.joinpath('src/filter.rs')} "
+    cmd += f"-o {filter_dir.joinpath('filter.rs')} "
     # generate code for the simulator
     cmd += "-c sim "
+    cmd += "-r 0 "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result

@@ -70,6 +70,7 @@ class TestClassKubernetes:
             udf_file = UDF_DIR.joinpath(query_udf)
             udf_file = udf_file.with_suffix(".cc")
             cmd += f"-u {udf_file} "
+        cmd += "-r productpage-v1 "
         result = util.exec_process(cmd)
         assert result == util.EXIT_SUCCESS
         # build the filter
