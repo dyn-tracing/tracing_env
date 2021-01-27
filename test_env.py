@@ -44,7 +44,7 @@ SIM_QUERIES = [
     pytest.param("response_code_count.cql", ["count"]),
     pytest.param("response_size_avg.cql", ["avg"], marks=pytest.mark.xfail),
     pytest.param("return.cql", []),
-    pytest.param("return_height.cql", [], marks=pytest.mark.xfail),
+    pytest.param("return_height.cql", []),
 ]
 # test names
 SIM_IDS = [i.values[0] for i in SIM_QUERIES]
