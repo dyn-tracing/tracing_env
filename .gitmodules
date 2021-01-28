@@ -4,3 +4,6 @@
 [submodule "tracing_sim"]
     url = https://github.com/dyn-tracing/tracing_sim
     path = tracing_sim
+[submodule "storage"]
+    url = https://github.com/dyn-tracing/storage
+    path = kubernetes_env/storage

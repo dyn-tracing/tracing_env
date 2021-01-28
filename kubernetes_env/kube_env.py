@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import requests
 
-import util
+import kube_util as util
 
 log = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def deploy_bookinfo():
     cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-mod.yaml && "
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/storage-upstream.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     bookinfo_wait()
@@ -109,7 +109,7 @@ def remove_bookinfo():
     samples_dir = f"{ISTIO_DIR}/samples"
     bookinfo_dir = f"{samples_dir}/bookinfo"
     cmd = f"{bookinfo_dir}/platform/kube/cleanup.sh &&"
-    cmd += f"kubectl delete -f {YAML_DIR}/storage-upstream.yaml && "
+    cmd += f"kubectl delete -f {YAML_DIR}/storage.yaml && "
     cmd += f"kubectl delete -f {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     return result
@@ -312,7 +312,7 @@ def refresh_filter(filter_dir):
         return result
 
     # also reset storage since we are working with a different filter now
-    cmd = "kubectl rollout restart deployment storage-upstream -n=storage "
+    cmd = "kubectl rollout restart deployment trace-storage -n=storage "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
