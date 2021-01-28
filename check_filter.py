@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from shutil import copytree, rmtree
 
-import kubernetes_env.util as util
+import kubernetes_env.kube_util as util
 
 FILE_DIR = Path.resolve(Path(__file__)).parent
 SIM_DIR = FILE_DIR.joinpath("tracing_sim")

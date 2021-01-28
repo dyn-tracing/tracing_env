@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import pytest
-import kubernetes_env.util as util
+import kubernetes_env.kube_util as util
 import kubernetes_env.kube_env as kube_env
 from check_filter import check_filter
 
