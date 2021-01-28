@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: storage-upstream
-        image: docker.io/taegyunk91/storage-upstream:latest
+        image: ghcr.io/dyn-tracing/storage:latest
         ports:
         - containerPort: 8080
 ---

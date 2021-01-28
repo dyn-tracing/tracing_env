@@ -12,7 +12,7 @@ import requests
 
 from prometheus_api_client import PrometheusConnect
 import kube_env
-import util
+import kube_util as util
 
 
 log = logging.getLogger(__name__)

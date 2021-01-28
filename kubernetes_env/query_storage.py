@@ -6,7 +6,7 @@ import logging
 import requests
 
 import run_experiment
-import util
+import kube_util as util
 
 log = logging.getLogger(__name__)
 
