@@ -312,7 +312,7 @@ def refresh_filter(filter_dir):
         return result
 
     # also reset storage since we are working with a different filter now
-    cmd = "kubectl rollout restart deployment trace-storage -n=storage "
+    cmd = "kubectl rollout restart deployment storage-upstream -n=storage "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
