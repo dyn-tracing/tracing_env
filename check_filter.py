@@ -55,6 +55,7 @@ def check_filter(query_file, query_udfs):
     # cleanup
     rmtree(target_filter_dir)
     return util.EXIT_SUCCESS
+    # TODO: check actual output in result.txt file
 
 
 def main(args):

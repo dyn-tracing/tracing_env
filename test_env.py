@@ -38,11 +38,11 @@ KUBE_IDS = [i.values[0] for i in KUBE_QUERIES]
 SIM_QUERIES = [
     pytest.param("count.cql", ["count"]),
     pytest.param("breadth_histogram.cql", [
-                 "histogram"], marks=pytest.mark.xfail),
+                 "histogram"]),
     pytest.param("height_histogram.cql", [
-                 "histogram"], marks=pytest.mark.xfail),
+                 "histogram"]),
     pytest.param("response_code_count.cql", ["count"]),
-    pytest.param("response_size_avg.cql", ["avg"], marks=pytest.mark.xfail),
+    pytest.param("response_size_avg.cql", ["avg"]),
     pytest.param("return.cql", []),
     pytest.param("return_height.cql", []),
 ]
@@ -95,3 +95,4 @@ class TestClassSimulator:
     def test_deployment(self, query_file, query_udfs):
         result = check_filter(query_file, query_udfs)
         assert result == util.EXIT_SUCCESS
+        # TODO: assert filter output
