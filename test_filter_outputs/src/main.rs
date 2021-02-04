@@ -7,9 +7,8 @@ mod tests {
     use std::env;
     use std::process::Command;
     use std::io::{self, Write};
-    use std::ffi::OsStr;
     use std::fs::remove_dir_all;
-    const ROOT_NAME: &str = "productpage-v1";
+    const ROOT_NAME: &str = "frontend-v1_plugin";
     const STORAGE_NAME: &str = "storage";
 
     // Because you can't do this sort of computation outside a function, I've made a function
@@ -19,7 +18,7 @@ mod tests {
         match env::current_exe() {
             Ok(mut exe_path) => {
                 // our executeable is in target/debug/... these pops are to get out of that directory into tracing_env
-                for i in 0..5 {
+                for _i in 0..5 {
                     exe_path.pop();
                 }
                 
@@ -63,13 +62,13 @@ mod tests {
     }     
 
 
-    fn generate_filter_code(filter_name: &str, query_name: &str, udf_name: &str, directories: &HashMap<&'static str, PathBuf>) {
+    fn generate_filter_code(query_name: &str, udf_name: &str, directories: &HashMap<&'static str, PathBuf>) {
         let cmd = &mut directories["COMPILER_BINARY"].clone();
         assert!(cmd.exists());
 
         let mut my_args : Vec<&str> = Vec::new();
         
-        let mut query_flag = "--query";
+        let query_flag = "--query";
         let query_pathbuf = &mut directories["QUERY_DIR"].clone();
         query_pathbuf.push(query_name);
         assert!(query_pathbuf.exists());
@@ -104,8 +103,11 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn move_filter_dir(filter_name: &str, directories: &HashMap<&'static str, PathBuf>) {
-        remove_dir_all(&directories["TARGET_FILTER_DIR"]);
+    fn move_filter_dir(directories: &HashMap<&'static str, PathBuf>) {
+        match remove_dir_all(&directories["TARGET_FILTER_DIR"]) {
+            Ok(_) => {},
+            Err(_) => { print!("Error removing the filter directory\n") },
+        };
         let mut cmd = Command::new("cp");
         let args = ["-r", &directories["FILTER_DIR"].to_str().unwrap(), &directories["TARGET_FILTER_DIR"].to_str().unwrap()];
         cmd.args(&args);
@@ -116,8 +118,7 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn compile_filter_dir(filter_name: &str, directories: &HashMap<&'static str, PathBuf>) {
-        let mut manifest_path = &mut directories["TARGET_FILTER_DIR"].clone();
+    fn compile_filter_dir(mut manifest_path: PathBuf) {
         manifest_path.push("Cargo.toml");
         let args = ["build", "--manifest-path", manifest_path.to_str().unwrap()];
         let mut cmd = Command::new("cargo");
@@ -128,8 +129,49 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn make_simulator(plugin_name: &PathBuf) -> sim::simulator::Simulator {
-        let simulator = sim::simulator::Simulator::new(0); // always run with the seed 0
+    fn make_simulator(plugin_name: &mut PathBuf) -> sim::simulator::Simulator {
+        plugin_name.push("target/debug/librust_filter");
+        let plugin = Some(plugin_name.to_str().unwrap());
+
+        let mut simulator = sim::simulator::Simulator::new(0); // always run with the seed 0
+
+        let regular_nodes = ["frontend-v1", "cartservice-v1", "productcatalogservice-v1",
+                             "currencyservice-v1", "paymentservice-v1", "shippingservice-v1",
+                             "emailservice-v1", "checkoutservice-v1", "recomendationservice-v1",
+                             "adservice-v1"].to_vec();
+        for node in &regular_nodes {
+            // node: ID, capacity, egress rate, generation rate, plugin
+            simulator.add_node(node, 10, 2, 0, plugin);
+        }
+        simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
+        simulator.add_node("sink", 10, 1, 0, None); // rpc sink
+        simulator.add_storage(STORAGE_NAME);
+
+        // add all connections to storage and to the sink - we want traces to be able to end arbitrarily
+        for node in &regular_nodes {
+            simulator.add_edge(1, node, STORAGE_NAME, true);
+            simulator.add_edge(1, node, "sink", true);
+        }
+
+        // src: load generator
+        simulator.add_edge(1, "loadgenerator-v1", "frontend-v1", true);
+        
+        // src: frontend
+        simulator.add_edge(1, "frontend-v1", "frontend-v1", false);
+        simulator.add_edge(1, "frontend-v1", "cartservice-v1", false);
+        simulator.add_edge(1, "frontend-v1", "recomendationservice-v1", false);
+        simulator.add_edge(1, "frontend-v1", "productcatalogservice-v1", false);
+        simulator.add_edge(1, "frontend-v1", "shippingservice-v1", false);
+        simulator.add_edge(1, "frontend-v1", "checkoutservice-v1", false);
+        simulator.add_edge(1, "frontend-v1", "adservice-v1", false);
+
+        // src: recomendation service
+        simulator.add_edge(1, "recomendationservice-v1", "productcatalogservice-v1", false);
+
+        // src: checkout service
+        simulator.add_edge(1, "checkoutservice-v1", "shippingservice-v1", false);
+        simulator.add_edge(1, "checkoutservice-v1", "paymentservice-v1", false);
+        simulator.add_edge(1, "checkoutservice-v1", "emailservice-v1", false);
 
         return simulator;
     }
@@ -137,26 +179,27 @@ mod tests {
 
 
     macro_rules! testit {
-        ($name:ident, $filter_name:expr, $query_name: expr, $udfs:expr, $expected_output:expr) => {
+        ($name:ident, $query_name: expr, $udfs:expr, $expected_output:expr) => {
             #[test]
             fn $name() {
                 let directories_wrapped = get_dirs();
                 assert!(directories_wrapped!=None);
                 let directories = directories_wrapped.unwrap();
 
-                generate_filter_code($filter_name, $query_name, $udfs, &directories);
-                move_filter_dir($filter_name, &directories);
-                compile_filter_dir($filter_name, &directories);
-                //let mut simulator = make_simulator(&directories["TARGET_FILTER_DIR"]);
-                //for tick in 0..10 {
-                //    simulator.tick(tick);
-                //}
-                //assert_eq!($expected_output, simulator.query_storage(STORAGE_NAME));
+                generate_filter_code($query_name, $udfs, &directories);
+                move_filter_dir(&directories);
+                compile_filter_dir(directories["TARGET_FILTER_DIR"].clone());
+                let mut simulator = make_simulator(&mut directories["TARGET_FILTER_DIR"].clone());
+                for tick in 0..10 {
+                    simulator.tick(tick);
+                }
+                print!("{}", simulator.query_storage(STORAGE_NAME));
+                assert_eq!($expected_output, simulator.query_storage(STORAGE_NAME));
             }
         }
     }
 
-    testit!(count, "count", "count.cql", "count.rs", "1");
+    testit!(count, "count.cql", "count.rs", "1");
 
 }
 
