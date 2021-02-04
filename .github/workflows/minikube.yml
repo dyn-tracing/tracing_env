@@ -11,8 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # FIXME: This should also support macos-latest, but does not...
-          os: [ubuntu-18.04]
+          os: [macos-latest, ubuntu-18.04]
     steps:
     - uses: actions/checkout@v2
       with:
