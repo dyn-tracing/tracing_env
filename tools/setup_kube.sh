@@ -16,7 +16,7 @@ git submodule update --init --recursive
 
 if [ "$(uname)" == "Darwin" ]; then
 # Docker
-brew cask install docker
+brew install --cask  docker
 # Kubectl
 brew install kubectl
 # Minikube
