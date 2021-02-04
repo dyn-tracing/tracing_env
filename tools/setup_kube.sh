@@ -13,12 +13,10 @@ sudo apt install -y apt-transport-https gnupg2 curl
 # Fetch the sub modules
 git submodule update --init --recursive
 
-# Docker
-sudo apt install -y docker.io
-# Docker without sudo
-sudo usermod -aG docker $USER
 
 if [ "$(uname)" == "Darwin" ]; then
+# Docker
+brew cask install docker
 # Kubectl
 brew install kubectl
 # Minikube
@@ -27,6 +25,10 @@ sudo install minikube-darwin-amd64 /usr/local/bin/minikube
 rm -rf minikube-darwin-amd64
 
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
+# Docker
+sudo apt install -y docker.io
+# Docker without sudo
+sudo usermod -aG docker $USER
 # Kubectl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
 sudo touch /etc/apt/sources.list.d/kubernetes.list
@@ -37,7 +39,6 @@ sudo apt install -y kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
 sudo dpkg -i minikube_latest_amd64.deb
 rm minikube_latest_amd64.deb
-
 fi
 
 # Configure minikube
