@@ -17,12 +17,18 @@ git submodule update --init --recursive
 if [ "$(uname)" == "Darwin" ]; then
 # Docker
 brew install --cask  docker
+brew upgrade --cask docker
 # Kubectl
 brew install kubectl
 # Minikube
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-amd64
 sudo install minikube-darwin-amd64 /usr/local/bin/minikube
 rm -rf minikube-darwin-amd64
+# Bazel
+/bin/bash -c "$(curl -fsSL \
+https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+brew install bazel
+brew upgrade bazel
 
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 # Docker
@@ -39,20 +45,21 @@ sudo apt install -y kubectl
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
 sudo dpkg -i minikube_latest_amd64.deb
 rm minikube_latest_amd64.deb
-fi
-
-# Configure minikube
-# Bookinfo requires more memory
-minikube config set memory 4096
-# Need to use docker because we are in a VM
-minikube config set driver docker
-
 # Bazel
 sudo apt install -y curl gnupg
 curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
 sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
 echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 sudo apt update && sudo apt install bazel
+
+fi
+
+# Configure minikube
+# Need to use docker because we are in a VM
+minikube config set driver docker
+# Bookinfo requires more memory
+minikube config set memory 4096
+
 
 # Need prometheus for the API
 pip3 install --user prometheus-api-client
