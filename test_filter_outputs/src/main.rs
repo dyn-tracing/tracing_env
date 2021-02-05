@@ -247,15 +247,15 @@ mod tests {
         "1\n2\n3\n4\n5\n6\n7\n"
     );
 
-    testit!(breadth_histogram, "breadth_histogram", "breadth_histogram_rust.cql", Some("histogram.rs"),
+    testit!(breadth_histogram, "breadth_histogram", "breadth_histogram.cql", Some("histogram.rs"),
            "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\n".to_string());
-    testit!(height_histogram, "height_histogram", "height_histogram_rust.cql", Some("histogram.rs"), 
+    testit!(height_histogram, "height_histogram", "height_histogram.cql", Some("histogram.rs"), 
            "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\n".to_string());
     testit!(response_code_count, "response_code_count", "response_code_count.cql", Some("count.rs"), "1\n2\n3\n4\n5\n6\n7\n");
-    testit!(response_size_avg, "response_size_avg", "response_size_avg_rust.cql", Some("avg.rs"), "1\n1\n1\n1\n1\n1\n1\n");
+    testit!(response_size_avg, "response_size_avg", "response_size_avg.cql", Some("avg.rs"), "1\n1\n1\n1\n1\n1\n1\n");
 
-    testit!(test_return, "return", "return_rust.cql", None, "");
-    testit!(return_height, "return_height", "return_height_rust.cql", None, "2\n2\n2\n2\n2\n2\n2\n");
+    testit!(test_return, "return", "return.cql", None, "");
+    testit!(return_height, "return_height", "return_height.cql", None, "2\n2\n2\n2\n2\n2\n2\n");
 }
 
 fn main() {
