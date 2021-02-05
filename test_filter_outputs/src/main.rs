@@ -62,7 +62,7 @@ mod tests {
     }     
 
 
-    fn generate_filter_code(query_name: &str, udf_name: &str, directories: &HashMap<&'static str, PathBuf>) {
+    fn generate_filter_code(query_name: &str, udf_name: Option<&str>, directories: &HashMap<&'static str, PathBuf>) {
         let cmd = &mut directories["COMPILER_BINARY"].clone();
         assert!(cmd.exists());
 
@@ -75,12 +75,15 @@ mod tests {
         my_args.push(&query_flag);
         my_args.push(query_pathbuf.to_str().unwrap());
 
-        let udf_flag = "-u";
-        let udf_pathbuf = &mut directories["UDF_DIR"].clone();
-        udf_pathbuf.push(udf_name);
-        assert!(udf_pathbuf.exists());
-        my_args.push(udf_flag);
-        my_args.push(udf_pathbuf.to_str().unwrap());
+        let mut udf_pathbuf;
+        if !udf_name.is_none() {
+            let udf_flag = "-u";
+            udf_pathbuf = directories["UDF_DIR"].clone();
+            udf_pathbuf.push(udf_name.unwrap());
+            assert!(udf_pathbuf.exists());
+            my_args.push(udf_flag);
+            my_args.push(udf_pathbuf.to_str().unwrap());
+        }
 
         let output_flag = "-o";
         my_args.push(output_flag);
@@ -103,13 +106,13 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn move_filter_dir(directories: &HashMap<&'static str, PathBuf>) {
-        match remove_dir_all(&directories["TARGET_FILTER_DIR"]) {
+    fn move_filter_dir(target_dir: String, directories: &HashMap<&'static str, PathBuf>) {
+        match remove_dir_all(&target_dir) {
             Ok(_) => {},
             Err(_) => { print!("Error removing the filter directory\n") },
         };
         let mut cmd = Command::new("cp");
-        let args = ["-r", &directories["FILTER_DIR"].to_str().unwrap(), &directories["TARGET_FILTER_DIR"].to_str().unwrap()];
+        let args = ["-r", &directories["FILTER_DIR"].to_str().unwrap(), &target_dir];
         cmd.args(&args);
         let output = cmd.output().expect("failed to copy filter over");
         io::stdout().write_all(&output.stdout).unwrap();
@@ -118,9 +121,9 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn compile_filter_dir(mut manifest_path: PathBuf) {
-        manifest_path.push("Cargo.toml");
-        let args = ["build", "--manifest-path", manifest_path.to_str().unwrap()];
+    fn compile_filter_dir(mut manifest_path: String) {
+        manifest_path.push_str("/Cargo.toml");
+        let args = ["build", "--manifest-path", &manifest_path];
         let mut cmd = Command::new("cargo");
         cmd.args(&args);
         let output = cmd.output().expect("failed to compile directory");
@@ -129,9 +132,9 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn make_simulator(plugin_name: &mut PathBuf) -> sim::simulator::Simulator {
-        plugin_name.push("target/debug/librust_filter");
-        let plugin = Some(plugin_name.to_str().unwrap());
+    fn make_simulator(mut plugin_name: String) -> sim::simulator::Simulator {
+        plugin_name.push_str("/target/debug/librust_filter");
+        let plugin = Some(plugin_name.as_str());
 
         let mut simulator = sim::simulator::Simulator::new(0); // always run with the seed 0
 
@@ -179,7 +182,7 @@ mod tests {
 
 
     macro_rules! testit {
-        ($name:ident, $query_name: expr, $udfs:expr, $expected_output:expr) => {
+        ($name:ident, $query_id: expr, $query_name: expr, $udfs:expr, $expected_output:expr) => {
             #[test]
             fn $name() {
                 let directories_wrapped = get_dirs();
@@ -187,9 +190,11 @@ mod tests {
                 let directories = directories_wrapped.unwrap();
 
                 generate_filter_code($query_name, $udfs, &directories);
-                move_filter_dir(&directories);
-                compile_filter_dir(directories["TARGET_FILTER_DIR"].clone());
-                let mut simulator = make_simulator(&mut directories["TARGET_FILTER_DIR"].clone());
+                let mut target_filter_dir = directories["TARGET_FILTER_DIR"].to_str().unwrap().to_string();
+                target_filter_dir.push_str($query_id);
+                move_filter_dir(target_filter_dir.clone(), &directories);
+                compile_filter_dir(target_filter_dir.clone());
+                let mut simulator = make_simulator(target_filter_dir.clone());
                 for tick in 0..10 {
                     simulator.tick(tick);
                 }
@@ -199,7 +204,17 @@ mod tests {
         }
     }
 
-    testit!(count, "count.cql", "count.rs", "1");
+    // This directs everything to storage, but it takes 3 hops for it to make it to storage, so we get 7 results
+    testit!(count, "count", "count.cql", Some("count.rs"), "1\n2\n3\n4\n5\n6\n7\n");
+
+    //testit!(breadth_histogram, "breadth_histogram.cql", Some("histogram.rs"), "Hist:  (1, 17)\n".to_string());
+    //testit!(height_histogram, "height_histogram.cql", Some("histogram.rs"), "Hist: (1, 17)\n".to_string());
+    //testit!(response_code_count, "response_code_count.cql", Some("count.rs"), "1");
+    //testit!(response_size_avg, "response_size_avg.cql", Some("avg.rs"), "1");
+
+    // This is a really bad example for the simulator - you'd have to run it a million times to get the query to show up
+    testit!(test_return, "return", "return.cql", None, "");
+    //testit!(return_height, "return_height.cql", None, "1");
 
 }
 
