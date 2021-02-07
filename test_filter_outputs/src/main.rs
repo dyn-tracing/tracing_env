@@ -168,13 +168,11 @@ mod tests {
             simulator.add_node(node, 10, 5, 0, plugin);
         }
         simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
-        simulator.add_node("sink", 10, 1, 0, None); // rpc sink
         simulator.add_storage(STORAGE_NAME);
 
-        // add all connections to storage and to the sink - we want traces to be able to end arbitrarily
+        // add all connections to storage
         for node in &regular_nodes {
             simulator.add_edge(1, node, STORAGE_NAME, true);
-            simulator.add_edge(1, node, "sink", true);
         }
 
         // src: traffic generator
