@@ -8,7 +8,7 @@ mod tests {
     use std::io::{self, Write};
     use std::path::PathBuf;
     use std::process::Command;
-    const ROOT_NAME: &str = "frontend-v1_plugin";
+    const ROOT_NAME: &str = "productpage-v1";
     const STORAGE_NAME: &str = "storage";
 
     // Because you can't do this sort of computation outside a function, I've made a function
@@ -155,23 +155,19 @@ mod tests {
         let mut simulator = sim::simulator::Simulator::new(1); // always run with the seed 1
 
         let regular_nodes = [
-            "frontend-v1",
-            "cartservice-v1",
-            "productcatalogservice-v1",
-            "currencyservice-v1",
-            "paymentservice-v1",
-            "shippingservice-v1",
-            "emailservice-v1",
-            "checkoutservice-v1",
-            "recomendationservice-v1",
-            "adservice-v1",
+            "productpage-v1",
+            "ratings-v1",
+            "reviews-v1",
+            "reviews-v2",
+            "reviews-v3",
+            "details-v1",
         ]
         .to_vec();
         for node in &regular_nodes {
             // node: ID, capacity, egress rate, generation rate, plugin
-            simulator.add_node(node, 10, 10, 0, plugin);
+            simulator.add_node(node, 10, 5, 0, plugin);
         }
-        simulator.add_node("loadgenerator-v1", 10, 1, 1, plugin);
+        simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
         simulator.add_node("sink", 10, 1, 0, None); // rpc sink
         simulator.add_storage(STORAGE_NAME);
 
@@ -181,31 +177,17 @@ mod tests {
             simulator.add_edge(1, node, "sink", true);
         }
 
-        // src: load generator
-        simulator.add_edge(1, "loadgenerator-v1", "frontend-v1", true);
-
-        // src: frontend
-        simulator.add_edge(1, "frontend-v1", "frontend-v1", false);
-        simulator.add_edge(1, "frontend-v1", "cartservice-v1", false);
-        simulator.add_edge(1, "frontend-v1", "recomendationservice-v1", false);
-        simulator.add_edge(1, "frontend-v1", "productcatalogservice-v1", false);
-        simulator.add_edge(1, "frontend-v1", "shippingservice-v1", false);
-        simulator.add_edge(1, "frontend-v1", "checkoutservice-v1", false);
-        simulator.add_edge(1, "frontend-v1", "adservice-v1", false);
-
-        // src: recomendation service
-        simulator.add_edge(
-            1,
-            "recomendationservice-v1",
-            "productcatalogservice-v1",
-            false,
-        );
-
-        // src: checkout service
-        simulator.add_edge(1, "checkoutservice-v1", "shippingservice-v1", false);
-        simulator.add_edge(1, "checkoutservice-v1", "paymentservice-v1", false);
-        simulator.add_edge(1, "checkoutservice-v1", "emailservice-v1", false);
-
+        // src: traffic generator
+        simulator.add_edge(1, "loadgenerator-v1", "productpage-v1", true);
+        // src: product page
+        simulator.add_edge(1, "productpage-v1", "reviews-v1", false);
+        simulator.add_edge(1, "productpage-v1", "reviews-v2", false);
+        simulator.add_edge(1, "productpage-v1", "reviews-v3", false);
+        simulator.add_edge(1, "productpage-v1", "details-v1", true);
+        // src: reviews
+        simulator.add_edge(1, "reviews-v1", "ratings-v1", false);
+        simulator.add_edge(1, "reviews-v2", "ratings-v1", false);
+        simulator.add_edge(1, "reviews-v3", "ratings-v1", false);
         return simulator;
     }
 
@@ -238,7 +220,10 @@ mod tests {
         };
     }
 
-    // This directs everything to storage, but it takes 3 hops for it to make it to storage, so we get 7 results
+    // Count is weird - if you make the nodes have the same names, as makes sense to me, then it doesn't work with c++
+    // but I'm not sure what exactly the query is saying if they have different names - so we'll leave it for now until
+    // we get language semantics ironed out on Monday
+    /*
     testit!(
         count,
         "count",
@@ -246,16 +231,41 @@ mod tests {
         Some("count.rs"),
         "1\n2\n3\n4\n5\n6\n7\n"
     );
+    */
 
     testit!(breadth_histogram, "breadth_histogram", "breadth_histogram.cql", Some("histogram.rs"),
            "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\n".to_string());
     testit!(height_histogram, "height_histogram", "height_histogram.cql", Some("histogram.rs"), 
            "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\n".to_string());
-    testit!(response_code_count, "response_code_count", "response_code_count.cql", Some("count.rs"), "1\n2\n3\n4\n5\n6\n7\n");
-    testit!(response_size_avg, "response_size_avg", "response_size_avg.cql", Some("avg.rs"), "1\n1\n1\n1\n1\n1\n1\n");
+    testit!(
+        response_code_count,
+        "response_code_count",
+        "response_code_count.cql",
+        Some("count.rs"),
+        "1\n2\n3\n4\n5\n6\n7\n"
+    );
+    testit!(
+        response_size_avg,
+        "response_size_avg",
+        "response_size_avg.cql",
+        Some("avg.rs"),
+        "1\n1\n1\n1\n1\n1\n1\n"
+    );
 
-    testit!(test_return, "return", "return.cql", None, "");
-    testit!(return_height, "return_height", "return_height.cql", None, "2\n2\n2\n2\n2\n2\n2\n");
+    testit!(
+        test_return,
+        "return",
+        "return.cql",
+        None,
+        "1\n1\n1\n1\n1\n1\n1\n"
+    );
+    testit!(
+        return_height,
+        "return_height",
+        "return_height.cql",
+        None,
+        "2\n2\n2\n2\n2\n2\n2\n"
+    );
 }
 
 fn main() {
