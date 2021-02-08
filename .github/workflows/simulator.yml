@@ -20,6 +20,6 @@ jobs:
       run: |
         ./tools/setup_sim.sh
     - uses: actions-rs/cargo@v1
-         with:
-           command: test
-           args: --verbose, --manifest-path test_filter_outputs/Cargo.toml
+      with:
+        command: test
+        args: --verbose, --manifest-path test_filter_outputs/Cargo.toml
