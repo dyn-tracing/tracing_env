@@ -113,12 +113,12 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn overwrite_toml(target_dir: &str, rust_toml: &str) {
+    fn overwrite_toml(target_dir: &str, cargo: &str) {
         let mut cmd = Command::new("cp");
         let mut target_toml = target_dir.to_string();
         target_toml.push_str("/Cargo.toml");
-        print!("copying from {0} to {1}\n", rust_toml, &target_toml);
-        let args = [ rust_toml, &target_toml ];
+        print!("copying from {0} to {1}\n", cargo, &target_toml);
+        let args = [ cargo, &target_toml ];
         cmd.args(&args);
         let output = cmd.output().expect("failed to copy filter over");
         io::stdout().write_all(&output.stdout).unwrap();
@@ -178,10 +178,14 @@ mod tests {
             "details-v1",
         ]
         .to_vec();
-        for node in &regular_nodes {
-            // node: ID, capacity, egress rate, generation rate, plugin
-            simulator.add_node(node, 10, 5, 0, plugin);
-        }
+        simulator.add_node("productpage-v1", 10, 5, 0, plugin);
+        simulator.add_node("reviews-v1", 10, 5, 0, plugin);
+        simulator.add_node("reviews-v2", 10, 5, 0, plugin);
+        simulator.add_node("reviews-v3", 10, 5, 0, plugin);
+
+        // ratings and details are dead ends
+        simulator.add_node("ratings-v1", 10, 0, 0, plugin);
+        simulator.add_node("details-v1", 10, 0, 0, plugin);
         simulator.add_node("loadgenerator-v1", 10, 1, 1, None);
         simulator.add_storage(STORAGE_NAME);
 
@@ -264,10 +268,10 @@ mod tests {
             temp_dir
         );
         copy_filter_dir(&temp_dir, directories["FILTER_DIR"].to_str().unwrap());
-        let mut rust_toml = &mut directories["ENV_DIR"].clone();
-        rust_toml.push("test_filter_outputs");
-        rust_toml.push("rust_toml.toml");
-        overwrite_toml(&temp_dir, rust_toml.to_str().unwrap());
+        let cargo = &mut directories["ENV_DIR"].clone();
+        cargo.push("test_filter_outputs");
+        cargo.push("generic_cargo.toml");
+        overwrite_toml(&temp_dir, cargo.to_str().unwrap());
 
         // 3. generate the filter file into that directory and compile
         generate_filter_code(query_name, temp_dir_buf, udfs, &directories);
@@ -283,10 +287,6 @@ mod tests {
         assert_eq!(expected_output, simulator.query_storage(STORAGE_NAME));
 
         // 5. clean up the temporary filter directory
-        //delete_filter_dir(temp_dir);
+        delete_filter_dir(temp_dir);
     }
-}
-
-fn main() {
-    print!("Don't use cargo +nightly run, this is a test file, so use cargo +nightly test\n");
 }
