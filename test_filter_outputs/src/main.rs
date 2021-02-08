@@ -1,5 +1,6 @@
 #![feature(command_access)]
 #[cfg(test)]
+
 mod tests {
     use sim;
     use std::collections::HashMap;
@@ -8,9 +9,11 @@ mod tests {
     use std::io::{self, Write};
     use std::path::PathBuf;
     use std::process::Command;
+    use test_case::test_case;
     const ROOT_NAME: &str = "productpage-v1";
     const STORAGE_NAME: &str = "storage";
 
+    // all the correct results
     // Because you can't do this sort of computation outside a function, I've made a function
     // to get all the directories/files
     fn get_dirs() -> Option<HashMap<&'static str, PathBuf>> {
@@ -118,11 +121,7 @@ mod tests {
             }
         };
         let mut cmd = Command::new("cp");
-        let args = [
-            "-r",
-            &source_dir,
-            &target_dir,
-        ];
+        let args = ["-r", &source_dir, &target_dir];
         cmd.args(&args);
         let output = cmd.output().expect("failed to copy filter over");
         io::stdout().write_all(&output.stdout).unwrap();
@@ -192,92 +191,80 @@ mod tests {
         return simulator;
     }
 
-    macro_rules! testit {
-        ($name:ident, $query_id: expr, $query_name: expr, $udfs:expr, $expected_output:expr) => {
-            #[test]
-            fn $name() {
-                // 1. get directories
-                let directories_wrapped = get_dirs();
-                assert!(directories_wrapped != None);
-                let directories = directories_wrapped.unwrap();
-
-                let temp_dir_buf = &mut directories["SIM_DIR"].clone();
-                temp_dir_buf.push("libs");
-                temp_dir_buf.push($query_id);
-                let temp_dir = temp_dir_buf.to_str().unwrap().to_string();
-
-                // 2. copy filter directory over from rust_filter
-                print!("copying from {0} to {1}\n", directories["FILTER_DIR"].to_str().unwrap(), temp_dir);
-                copy_filter_dir(
-                    &temp_dir,
-                    directories["FILTER_DIR"].to_str().unwrap()
-                );
-
-                // 3. generate the filter file into that directory and compile
-                generate_filter_code($query_name, temp_dir_buf, $udfs, &directories);
-                compile_filter_dir(temp_dir.clone());
-
-                // 4. make the simulator and test outputs
-                let mut simulator = make_simulator(temp_dir.clone());
-                for tick in 0..10 {
-                    simulator.tick(tick);
-                    print!("{}", simulator.query_storage(STORAGE_NAME));
-                }
-                print!("{}", simulator.query_storage(STORAGE_NAME));
-                assert_eq!($expected_output, simulator.query_storage(STORAGE_NAME));
-
-                // 5. clean up the temporary filter directory
-                delete_filter_dir(temp_dir);
-            }
-        };
-    }
-
     // Count is weird - if you make the nodes have the same names, as makes sense to me, then it doesn't work with c++
     // but I'm not sure what exactly the query is saying if they have different names - so we'll leave it for now until
-    // we get language semantics ironed out on Monday
-    /*
-    testit!(
-        count,
-        "count",
-        "count_rust.cql",
-        Some("count.rs"),
-        "1\n2\n3\n4\n5\n6\n7\n"
-    );
-    */
-
-    testit!(breadth_histogram, "breadth_histogram", "breadth_histogram.cql", Some("histogram.rs"),
-           "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\n".to_string());
-    testit!(height_histogram, "height_histogram", "height_histogram.cql", Some("histogram.rs"), 
-           "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\n".to_string());
-    testit!(
-        response_code_count,
+    // we get language semantics ironed out
+    #[test_case(
+        "breadth_histogram",
+        "breadth_histogram.cql",
+        Some("histogram.rs"),
+        "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\n" ; "breadth_histogram_test"
+    )]
+    #[test_case(
+        "height_histogram",
+        "height_histogram.cql",
+        Some("histogram.rs"),
+        "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\n" ; "height_histogram_test"
+    )]
+    #[test_case(
         "response_code_count",
         "response_code_count.cql",
         Some("count.rs"),
-        "1\n2\n3\n4\n5\n6\n7\n"
-    );
-    testit!(
-        response_size_avg,
+        "1\n2\n3\n4\n5\n6\n7\n" ; "response_code_count_test"
+    )]
+    #[test_case(
         "response_size_avg",
         "response_size_avg.cql",
         Some("avg.rs"),
-        "1\n1\n1\n1\n1\n1\n1\n"
-    );
-
-    testit!(
-        test_return,
-        "return",
+        "1\n1\n1\n1\n1\n1\n1\n" ; "response_size_avg_test"
+    )]
+    #[test_case(
+        "return_test",
         "return.cql",
         None,
-        "1\n1\n1\n1\n1\n1\n1\n"
-    );
-    testit!(
-        return_height,
+        "1\n1\n1\n1\n1\n1\n1\n" ; "return_test"
+    )]
+    #[test_case(
         "return_height",
         "return_height.cql",
         None,
-        "2\n2\n2\n2\n2\n2\n2\n"
-    );
+        "2\n2\n2\n2\n2\n2\n2\n" ; "return_height_test"
+    )]
+    fn test(query_id: &str, query_name: &str, udfs: Option<&str>, expected_output: &str) {
+        // 1. get directories
+        let directories_wrapped = get_dirs();
+        assert!(directories_wrapped != None);
+        let directories = directories_wrapped.unwrap();
+
+        let temp_dir_buf = &mut directories["SIM_DIR"].clone();
+        temp_dir_buf.push("libs");
+        temp_dir_buf.push(query_id);
+        let temp_dir = temp_dir_buf.to_str().unwrap().to_string();
+
+        // 2. copy filter directory over from rust_filter
+        print!(
+            "copying from {0} to {1}\n",
+            directories["FILTER_DIR"].to_str().unwrap(),
+            temp_dir
+        );
+        copy_filter_dir(&temp_dir, directories["FILTER_DIR"].to_str().unwrap());
+
+        // 3. generate the filter file into that directory and compile
+        generate_filter_code(query_name, temp_dir_buf, udfs, &directories);
+        compile_filter_dir(temp_dir.clone());
+
+        // 4. make the simulator and test outputs
+        let mut simulator = make_simulator(temp_dir.clone());
+        for tick in 0..10 {
+            simulator.tick(tick);
+            print!("{}", simulator.query_storage(STORAGE_NAME));
+        }
+        print!("{}", simulator.query_storage(STORAGE_NAME));
+        assert_eq!(expected_output, simulator.query_storage(STORAGE_NAME));
+
+        // 5. clean up the temporary filter directory
+        delete_filter_dir(temp_dir);
+    }
 }
 
 fn main() {
