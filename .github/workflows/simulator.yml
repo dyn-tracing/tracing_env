@@ -22,3 +22,15 @@ jobs:
     - name: Test with pytest
       run: |
         python3 -m pytest -vrf
+    - name: Test filter outputs
+      steps:
+        - uses: actions/checkout@v2
+        - uses: actions-rs/toolchain@v1
+          with:
+            profile: minimal
+            toolchain: nightly
+            override: true
+       - uses: actions-rs/cargo@v1
+         with:
+           command: test
+           args: --verbose, --manifest-path test_filter_outputs/Cargo.toml

@@ -113,6 +113,19 @@ mod tests {
         assert!(output.status.success());
     }
 
+    fn overwrite_toml(target_dir: &str, rust_toml: &str) {
+        let mut cmd = Command::new("cp");
+        let mut target_toml = target_dir.to_string();
+        target_toml.push_str("/Cargo.toml");
+        print!("copying from {0} to {1}\n", rust_toml, &target_toml);
+        let args = [ rust_toml, &target_toml ];
+        cmd.args(&args);
+        let output = cmd.output().expect("failed to copy filter over");
+        io::stdout().write_all(&output.stdout).unwrap();
+        io::stdout().write_all(&output.stderr).unwrap();
+
+        assert!(output.status.success());
+    }
     fn copy_filter_dir(target_dir: &str, source_dir: &str) {
         match remove_dir_all(&target_dir) {
             Ok(_) => {}
@@ -236,10 +249,13 @@ mod tests {
         assert!(directories_wrapped != None);
         let directories = directories_wrapped.unwrap();
 
-        let temp_dir_buf = &mut directories["SIM_DIR"].clone();
-        temp_dir_buf.push("libs");
+        //let temp_dir_buf = &mut directories["SIM_DIR"].clone();
+        //temp_dir_buf.push("libs");
+        //temp_dir_buf.push(query_id);
+        let temp_dir_buf = &mut directories["ENV_DIR"].clone();
         temp_dir_buf.push(query_id);
         let temp_dir = temp_dir_buf.to_str().unwrap().to_string();
+        
 
         // 2. copy filter directory over from rust_filter
         print!(
@@ -248,6 +264,10 @@ mod tests {
             temp_dir
         );
         copy_filter_dir(&temp_dir, directories["FILTER_DIR"].to_str().unwrap());
+        let mut rust_toml = &mut directories["ENV_DIR"].clone();
+        rust_toml.push("test_filter_outputs");
+        rust_toml.push("rust_toml.toml");
+        overwrite_toml(&temp_dir, rust_toml.to_str().unwrap());
 
         // 3. generate the filter file into that directory and compile
         generate_filter_code(query_name, temp_dir_buf, udfs, &directories);
@@ -263,7 +283,7 @@ mod tests {
         assert_eq!(expected_output, simulator.query_storage(STORAGE_NAME));
 
         // 5. clean up the temporary filter directory
-        delete_filter_dir(temp_dir);
+        //delete_filter_dir(temp_dir);
     }
 }
 
