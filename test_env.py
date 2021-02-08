@@ -86,13 +86,3 @@ class TestClassKubernetes:
         setup_class.
         """
         kube_env.stop_kubernetes("MK")
-
-
-class TestClassSimulator:
-
-    @pytest.mark.run_default
-    @pytest.mark.parametrize("query_file,query_udfs", SIM_QUERIES, ids=SIM_IDS)
-    def test_deployment(self, query_file, query_udfs):
-        result = check_filter(query_file, query_udfs)
-        assert result == util.EXIT_SUCCESS
-        #TODO: check the results in result.txt as well

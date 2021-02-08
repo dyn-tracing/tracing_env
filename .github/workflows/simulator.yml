@@ -19,6 +19,7 @@ jobs:
     - name: Install
       run: |
         ./tools/setup_sim.sh
-    - name: Test with pytest
-      run: |
-        python3 -m pytest -vrf
+    - uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose --manifest-path test_filter_outputs/Cargo.toml
