@@ -49,7 +49,7 @@ mod tests {
                 to_return.insert("TARGET_FILTER_DIR", target_filter_dir);
 
                 to_return.insert("COMPILER_DIR", compiler_dir);
-                to_return.insert("FILE_DIR", exe_path);
+                to_return.insert("ENV_DIR", exe_path);
                 to_return.insert("SIM_DIR", sim_dir);
                 return Some(to_return);
             }
@@ -62,6 +62,7 @@ mod tests {
 
     fn generate_filter_code(
         query_name: &str,
+        filter_dir: &mut PathBuf,
         udf_name: Option<&str>,
         directories: &HashMap<&'static str, PathBuf>,
     ) {
@@ -89,7 +90,8 @@ mod tests {
 
         let output_flag = "-o";
         my_args.push(output_flag);
-        my_args.push("filter");
+        filter_dir.push("filter.rs");
+        my_args.push(filter_dir.to_str().unwrap());
 
         my_args.push("-c");
         my_args.push("sim");
@@ -108,7 +110,7 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn move_filter_dir(target_dir: String, directories: &HashMap<&'static str, PathBuf>) {
+    fn copy_filter_dir(target_dir: &str, source_dir: &str) {
         match remove_dir_all(&target_dir) {
             Ok(_) => {}
             Err(_) => {
@@ -118,7 +120,7 @@ mod tests {
         let mut cmd = Command::new("cp");
         let args = [
             "-r",
-            &directories["FILTER_DIR"].to_str().unwrap(),
+            &source_dir,
             &target_dir,
         ];
         cmd.args(&args);
@@ -139,6 +141,7 @@ mod tests {
 
     fn compile_filter_dir(mut manifest_path: String) {
         manifest_path.push_str("/Cargo.toml");
+        print!("manifest path is {0}\n", manifest_path);
         let args = ["build", "--manifest-path", &manifest_path];
         let mut cmd = Command::new("cargo");
         cmd.args(&args);
@@ -193,27 +196,38 @@ mod tests {
         ($name:ident, $query_id: expr, $query_name: expr, $udfs:expr, $expected_output:expr) => {
             #[test]
             fn $name() {
+                // 1. get directories
                 let directories_wrapped = get_dirs();
                 assert!(directories_wrapped != None);
                 let directories = directories_wrapped.unwrap();
 
-                generate_filter_code($query_name, $udfs, &directories);
-                let mut target_filter_dir = directories["TARGET_FILTER_DIR"]
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                target_filter_dir.push_str($query_id);
-                move_filter_dir(target_filter_dir.clone(), &directories);
-                compile_filter_dir(target_filter_dir.clone());
-                let mut simulator = make_simulator(target_filter_dir.clone());
+                let temp_dir_buf = &mut directories["SIM_DIR"].clone();
+                temp_dir_buf.push("libs");
+                temp_dir_buf.push($query_id);
+                let temp_dir = temp_dir_buf.to_str().unwrap().to_string();
+
+                // 2. copy filter directory over from rust_filter
+                print!("copying from {0} to {1}\n", directories["FILTER_DIR"].to_str().unwrap(), temp_dir);
+                copy_filter_dir(
+                    &temp_dir,
+                    directories["FILTER_DIR"].to_str().unwrap()
+                );
+
+                // 3. generate the filter file into that directory and compile
+                generate_filter_code($query_name, temp_dir_buf, $udfs, &directories);
+                compile_filter_dir(temp_dir.clone());
+
+                // 4. make the simulator and test outputs
+                let mut simulator = make_simulator(temp_dir.clone());
                 for tick in 0..10 {
                     simulator.tick(tick);
                     print!("{}", simulator.query_storage(STORAGE_NAME));
                 }
                 print!("{}", simulator.query_storage(STORAGE_NAME));
                 assert_eq!($expected_output, simulator.query_storage(STORAGE_NAME));
-                // clean up all the directories we've created
-                delete_filter_dir(target_filter_dir.clone());
+
+                // 5. clean up the temporary filter directory
+                delete_filter_dir(temp_dir);
             }
         };
     }
