@@ -237,7 +237,7 @@ def setup_bookinfo_deployment(platform, multizonal):
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    result = deploy_addons()
+    # result = deploy_addons()
     return result
 
 

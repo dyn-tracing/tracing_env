@@ -5,6 +5,7 @@ import pytest
 import kubernetes_env.kube_util as util
 import kubernetes_env.kube_env as kube_env
 from check_filter import check_filter
+import query_tests
 
 # configure logging
 log = logging.getLogger(__name__)
@@ -78,6 +79,10 @@ class TestClassKubernetes:
         assert result == util.EXIT_SUCCESS
         # deploy the filter
         result = kube_env.refresh_filter(kube_env.FILTER_DIR)
+        assert result == util.EXIT_SUCCESS
+
+    def test_count(self):
+        result = query_tests.test_count()
         assert result == util.EXIT_SUCCESS
 
     @classmethod

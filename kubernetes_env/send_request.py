@@ -8,15 +8,15 @@ import kube_env
 log = logging.getLogger(__name__)
 
 
-def send_request(args):
-    _, _, gateway_url = kube_env.get_gateway_info(args.platform)
+def send_request(platform="MK"):
+    _, _, gateway_url = kube_env.get_gateway_info(platform)
     url = f"http://{gateway_url}/productpage"
     response = requests.get(url)
     return response
 
 
 def main(args):
-    log.info(send_request(args).headers)
+    log.info(send_request(args.platform).headers)
 
 
 if __name__ == '__main__':

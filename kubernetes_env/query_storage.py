@@ -11,18 +11,26 @@ import kube_util as util
 log = logging.getLogger(__name__)
 
 
-def query_storage():
-    storage_content = requests.get("http://localhost:8090/list")
+def init_storage_mon():
+    util.kill_tcp_proc(8090)
+    storage_proc = run_experiment.launch_storage_mon()
+    return storage_proc
+
+
+def query_storage(cmd="list"):
+    storage_content = requests.get(f"http://localhost:8090/{cmd}")
     return storage_content
 
 
-def main(_):
-    util.kill_tcp_proc(8090)
-    storage_proc = run_experiment.launch_storage_mon()
+def kill_storage_mon(storage_proc):
+    os.killpg(os.getpgid(storage_proc.pid), signal.SIGINT)
 
+
+def main(_):
+    storage_proc = init_storage_mon()
     log.info("Storage content:\n%s", query_storage().text)
     # kill the storage proc after the query
-    os.killpg(os.getpgid(storage_proc.pid), signal.SIGINT)
+    kill_storage_mon(storage_proc)
 
 
 if __name__ == '__main__':
