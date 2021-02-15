@@ -32,6 +32,7 @@ def process_response(text):
 
 def test_count():
     # generate the filter code
+    log.info("Generating the filter")
     cmd = f"{COMPILER_BINARY} "
     cmd += f"-q {QUERY_DIR.joinpath('count.cql')} "
     cmd += f"-u {UDF_DIR.joinpath('count.cc')} "
@@ -39,18 +40,22 @@ def test_count():
     result = util.exec_process(cmd)
     assert result == util.EXIT_SUCCESS
     # build the filter
+    log.info("Building the filter")
     result = kube_env.build_filter(kube_env.FILTER_DIR)
     assert result == util.EXIT_SUCCESS
     # deploy the filter
+    log.info("Deploying the filter")
     result = kube_env.refresh_filter(kube_env.FILTER_DIR)
-    assert result == util.EXIT_SUCCESS
     # sleep a little, so things initialize better
+    log.info("Sleeping for 10 seconds")
     time.sleep(10)
     # first, clean the storage
+    log.info("Cleaning storage")
     storage_proc = storage.init_storage_mon()
     storage.query_storage("clean")
 
     # first request
+    log.info("Sending request #1")
     requests.send_request()
     storage_content = storage.query_storage()
     text = storage_content.text
@@ -58,6 +63,7 @@ def test_count():
     assert "1" in result_set
 
     # second request
+    log.info("Sending request #2")
     requests.send_request()
     storage_content = storage.query_storage()
     text = storage_content.text
@@ -65,6 +71,7 @@ def test_count():
     assert "2" in result_set
 
     # third request
+    log.info("Sending request #3")
     requests.send_request()
     storage_content = storage.query_storage()
     text = storage_content.text
