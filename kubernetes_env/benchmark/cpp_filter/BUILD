@@ -26,31 +26,6 @@ wasm_cc_binary(
     ],
     deps = [
         "@proxy_wasm_cpp_sdk//:proxy_wasm_intrinsics",
-         ":graph_utils",
-        ":str_utils",
     ],
 )
 
-cc_library(
-    name = "str_utils",
-    srcs = [
-        "str_utils.cc",
-    ],
-    hdrs = [
-        "str_utils.h",
-    ],
-)
-
-cc_library(
-    name = "graph_utils",
-    srcs = [
-        "graph_utils.cc",
-    ],
-    hdrs = [
-        "graph_utils.h",
-    ],
-    deps = [
-        "@boost//:graph",
-        ":str_utils",
-    ],
-)
