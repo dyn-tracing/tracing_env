@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import time
 from pathlib import Path
 
 import kubernetes_env.kube_util as util
@@ -43,6 +44,8 @@ def test_count():
     # deploy the filter
     result = kube_env.refresh_filter(kube_env.FILTER_DIR)
     assert result == util.EXIT_SUCCESS
+    # sleep a little, so things initialize better
+    time.sleep(10)
     # first, clean the storage
     storage_proc = storage.init_storage_mon()
     storage.query_storage("clean")
