@@ -264,6 +264,21 @@ def install_modded_bookinfo():
     return result
 
 
+def update_conf_map(filter_dir):
+    # delete the config map
+    cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.warning("Failed to delete the config map.")
+    # "refresh" it by recreating the config map
+    cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
+    cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.error("Failed to create config map.")
+        return result
+
+
 def deploy_filter(filter_dir):
     # check if the config map already exists
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
@@ -277,7 +292,10 @@ def deploy_filter(filter_dir):
             log.error("Failed to create config map.")
             return result
     else:
+        # Config map exists, assume that the deployment is already modded
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
+        # delete and recreate the config map
+        return refresh_filter(filter_dir)
     # update the containers with the config map
     # FIXME: There is an issue with the yaml currently, so we ignore the result
     _ = install_modded_bookinfo()
@@ -292,19 +310,8 @@ def deploy_filter(filter_dir):
 
 def refresh_filter(filter_dir):
 
-    # delete the config map
-    cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map.")
-    # "refresh" it by recreating the config map
-    cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-    cmd += f"{filter_dir}/bazel-bin/filter.wasm "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        log.error("Failed to create config map.")
-        return result
-
+    # delete and recreate the config map
+    update_conf_map(filter_dir)
     # this is equivalent to a deployment restart right now
     cmd = "kubectl rollout restart  deployments --namespace=default"
     result = util.exec_process(cmd)

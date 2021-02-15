@@ -45,7 +45,7 @@ def test_count():
     assert result == util.EXIT_SUCCESS
     # deploy the filter
     log.info("Deploying the filter")
-    result = kube_env.refresh_filter(kube_env.FILTER_DIR)
+    result = kube_env.deploy_filter(kube_env.FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 10 seconds")
     time.sleep(10)
@@ -79,6 +79,7 @@ def test_count():
     assert "3" in result_set
 
     storage.kill_storage_mon(storage_proc)
+    log.info("Count test succeeded.")
     return util.EXIT_SUCCESS
 
 
