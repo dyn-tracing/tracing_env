@@ -14,8 +14,6 @@
 
 #include "proxy_wasm_intrinsics.h"
 
-#include "graph_utils.h"
-#include "str_utils.h"
 
 // TrafficDirection is a mirror of envoy xDS traffic direction.
 // As defined in istio/proxy/extensions/common/context.h
