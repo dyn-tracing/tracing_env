@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.8.0")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.0")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
@@ -295,7 +295,7 @@ def deploy_filter(filter_dir):
         # Config map exists, assume that the deployment is already modded
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
         # delete and recreate the config map
-        return refresh_filter(filter_dir)
+        update_conf_map(filter_dir)
     # update the containers with the config map
     # FIXME: There is an issue with the yaml currently, so we ignore the result
     _ = install_modded_bookinfo()

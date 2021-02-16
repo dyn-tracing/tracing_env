@@ -32,8 +32,6 @@ class TestClassKubernetes:
         """
         result = kube_env.setup_bookinfo_deployment("MK", False)
         assert result == util.EXIT_SUCCESS
-        # start the modified bookinfo app, ignore the result for now
-        result = kube_env.deploy_bookinfo()
 
 
     def test_count(self):
