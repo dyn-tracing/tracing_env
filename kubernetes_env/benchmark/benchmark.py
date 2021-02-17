@@ -8,6 +8,7 @@ import signal
 import requests
 import time
 import matplotlib.pyplot as plt
+import json
 from pathlib import Path
 
 sys.path.append("..")
@@ -24,12 +25,15 @@ def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, graph_name = "graph")
     plt.plot(xaxis_data, yaxis_data, marker='o')
     plt.xlabel(xaxis_label)
     plt.ylabel(yaxis_label)
-    if not check_dir():
+    if not check_dir("graph"):
       os.mkdir(os.path.join(FILE_DIR, "graphs"))
     plt.savefig(os.path.join(FILE_DIR, f"graphs/{graph_name}.png"))
 
-def check_dir():
-    return os.path.isdir(os.path.join(FILE_DIR, "graphs"))
+def check_dir(dirname):
+    return os.path.isdir(os.path.join(FILE_DIR, dirname))
+
+def make_dir(dirname):
+    os.mkdir(os.path.join(FILE_DIR, dirname))
 
 def setup_filter(platform, multizonal):
     result = kube_env.setup_bookinfo_deployment(
@@ -46,14 +50,17 @@ def teardown(platform):
 def run_fortio(platform, threads, qps, run_time):
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     cmd = f"{FORTIO_DIR}/bin/fortio "
-    cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -loglevel Warning "
+    cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -json data/output.json "
     cmd += f"http://{gateway_url}/productpage"
-    # fortio_proc = util.start_process(cmd, preexec_fn=os.setsid)
-    result = subprocess.run(cmd, shell=True, preexec_fn=os.setsid)
-    if result.return_code == 0:
-      # process data from fortio
-    else:
-      # error
+    fortio_proc = util.start_process(cmd, preexec_fn=os.setsid)
+    outs, errs = fortio_proc.communicate()
+
+def parse_output(file_name="data/output.json"):
+    with open(file_name, "r") as f:
+       fortio_json = f.load(f)
+       actual_qps = fortio_json["ActualQPS"]
+       actual_duration = fortio_json["ActualDuration"]
+       print(f"Actual QPS: {actual_qps}. Actual duration: {actual_duration}")
 
 def benchmark_lat(platform, threads, qps, time):
     run_fortio(platform, threads, qps, time)
@@ -67,8 +74,10 @@ def main(args):
     platform = args.platform
     time = args.time
     
+    if not check_dir("data"):
+      make_dir("data")
     benchmark_lat(platform, threads, qps, time)
-     
+    parse_output()
     '''
     Build filters and tear down after each benchmark
 
