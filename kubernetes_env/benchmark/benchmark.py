@@ -1,81 +1,92 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import subprocess
 import os
 import sys
+import signal
 import requests
 import time
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 sys.path.append("..")
+
 import kube_env
+import kube_util as util
 
 log = logging.getLogger(__name__)
-mypath = os.path.abspath(os.path.dirname(__file__))
+FILE_DIR = os.path.abspath(os.path.dirname(__file__))
+# Haven't found a workaround
+FORTIO_DIR = Path(__file__).parent.resolve().parent.resolve().parent.resolve()
 
-
-"""
-    Check if the response code is a successful request
-    The function takes:
-       - response: a response object
-"""
-def is_successful(response):
-    return response.status_code == 200
-
-def check_dir():
-    return os.path.isdir(os.path.join(mypath, "graphs"))
-
-def send_request(args):
-    _, _, gateway_url = kube_env.get_gateway_info(args.platform)
-    url = f"http://{gateway_url}/productpage"
-    response = requests.get(url)
-    return response
-
-"""
-    Iterating over total numbers of request and measure the
-    latency in seconds
-"""
-def send_requests(numb_request, args):
-    latency_ls = []
-    for i in range(numb_request):
-      start = time.time() 
-      res = send_request(args)
-      if(is_successful(res)):
-        latency = time.time() - start
-        latency_ls.append(latency)
-      else:
-        log.error(res.headers)
-    return latency_ls
-
-"""
-    Get average latency and convert to float with 1 decimal 
-"""
-def get_ave_latency(args):
-    ave_latency = []
-    numb_requests = args.latency
-    for numb_request in numb_requests:
-       print(f"Getting latency for {numb_request} requests")
-       latency_ls = send_requests(numb_request, args)
-       ave_latency.append(sum(latency_ls) / len(latency_ls))
-    ave_latency = [float("{:.1f}".format(latency)) for latency in ave_latency]
-    return ave_latency
-
-"""
-    General purpose plot function and save to graphs dir
-"""
 def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, graph_name = "graph") : 
     plt.plot(xaxis_data, yaxis_data, marker='o')
     plt.xlabel(xaxis_label)
     plt.ylabel(yaxis_label)
     if not check_dir():
-      os.mkdir(os.path.join(mypath, "graphs"))
-    plt.savefig(os.path.join(mypath, f"graphs/{graph_name}.png"))
-       
+      os.mkdir(os.path.join(FILE_DIR, "graphs"))
+    plt.savefig(os.path.join(FILE_DIR, f"graphs/{graph_name}.png"))
+
+def is_successful(response):
+    return response.status_code == 200
+
+def check_dir():
+    return os.path.isdir(os.path.join(FILE_DIR, "graphs"))
+
+def setup_filter(platform, multizonal):
+    result = kube_env.setup_bookinfo_deployment(
+         platform, multizonal)
+    return result
+
+def build_filter(filter_dir):
+    result = kube_env.deploy_filter(filter_dir)
+    return result
+
+def teardown(platform):
+    kube_env.stop_kubernetes(platform)
+
+def run_fortio(platform, threads, qps, run_time):
+    _, _, gateway_url = kube_env.get_gateway_info(platform)
+    cmd = f"{FORTIO_DIR}/bin/fortio "
+    cmd += f"load -c {threads} -qps {qps} -jitter -t 5s -loglevel Warning "
+    cmd += f"http://{gateway_url}/productpage"
+    # fortio_proc = util.start_process(cmd, preexec_fn=os.setsid)
+    result = subprocess.run(cmd, shell=True, preexec_fn=os.setsid)
+
+def benchmark_lat(platform, threads, qps, time):
+    run_fortio(platform, threads, qps, time)
 
 def main(args):
-    if args.latency:
-      ave_latency = get_ave_latency(args)
-      plot(args.latency, ave_latency, "Number of requests", "Latency (s)", args.latency_gname) 
+    filter_dirs = args.filter_dirs
+    threads = args.threads
+    qps = args.qps
+    latency = args.latency
+    latency_gname = args.latency_gname
+    platform = args.platform
+    time = args.time
+    
+    benchmark_lat(platform, threads, qps, time)
+    
+    
+    '''
+    Build filters and tear down after each benchmark
+
+    for filter_dir in filter_dirs:
+      setup_res = setup_filter(args.platform, args.multizonal)
+      if setup_res != util.EXIT_SUCCESS:
+        return setup_res
+      filter_res = build_filter(args.filter_dir)
+      if filter_res != util.EXIT_SUCCESS:
+        return filter_res
+
+      # Start benchmarking
+      if latency:
+        benchmark_lat(t_requests, latency_gname, platform)
+      
+      teardown(args.platform)
+    '''
+    return util.EXIT_SUCCESS
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -92,12 +103,29 @@ if __name__ == '__main__':
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."
                         "MK is minikube, GCP is Google Cloud Compute")
-    parser.add_argument("-lat", "--latency", dest="latency",
-                        nargs="+", type=int, default="1000",
-                        help="Number of requests to measure latency")
+    parser.add_argument("-m", "--multi-zonal", dest="multizonal",
+                        action="store_true",
+                        help="If you are running on GCP,"
+                        " do you want a multi-zone cluster?")                      
+    parser.add_argument("-fds", "--filter-dirs", dest="filter_dirs",
+                        nargs="+", type=str,
+                        default=kube_env.FILTER_DIR,
+                        help="List of directories of the filter")
+    parser.add_argument("-th", "--threads", dest="threads",
+                        type=int, default=50,
+                        help="Number of threads")
+    parser.add_argument("-qps", dest="qps",
+                        type=int, default=300,
+                        help="Query per second")
+    parser.add_argument("-t", "--time", dest="time",
+                        type=int, default=5,
+                        help="Time for fortio")
+    parser.add_argument("-la", "--latency", dest="latency",
+                        type=bool, default=True,
+                        help="Measure latency or not?")
     parser.add_argument("-tp", "--throughput", dest="throughput",
-                       nargs="+", type=int, default="1000",
-                       help="Number of requests to measure throughput")
+                       type=bool, default=False,
+                       help="Measure throughput or not?")
     parser.add_argument("--lat-gname", "--latency-graph-name",
                        dest="latency_gname", type=str,
                        default="latency-graph",
