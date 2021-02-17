@@ -28,9 +28,6 @@ def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, graph_name = "graph")
       os.mkdir(os.path.join(FILE_DIR, "graphs"))
     plt.savefig(os.path.join(FILE_DIR, f"graphs/{graph_name}.png"))
 
-def is_successful(response):
-    return response.status_code == 200
-
 def check_dir():
     return os.path.isdir(os.path.join(FILE_DIR, "graphs"))
 
@@ -49,10 +46,14 @@ def teardown(platform):
 def run_fortio(platform, threads, qps, run_time):
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     cmd = f"{FORTIO_DIR}/bin/fortio "
-    cmd += f"load -c {threads} -qps {qps} -jitter -t 5s -loglevel Warning "
+    cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -loglevel Warning "
     cmd += f"http://{gateway_url}/productpage"
     # fortio_proc = util.start_process(cmd, preexec_fn=os.setsid)
     result = subprocess.run(cmd, shell=True, preexec_fn=os.setsid)
+    if result.return_code == 0:
+      # process data from fortio
+    else:
+      # error
 
 def benchmark_lat(platform, threads, qps, time):
     run_fortio(platform, threads, qps, time)
@@ -67,8 +68,7 @@ def main(args):
     time = args.time
     
     benchmark_lat(platform, threads, qps, time)
-    
-    
+     
     '''
     Build filters and tear down after each benchmark
 
