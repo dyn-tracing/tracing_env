@@ -79,37 +79,37 @@ mod tests {
         "breadth_histogram",
         "breadth_histogram.cql",
         vec!["histogram.rs"],
-        "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\n" ; "breadth_histogram_test"
+        "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\nHist:  (1, 8) \n\n" ; "breadth_histogram_test"
     )]
     #[test_case(
         "height_histogram",
         "height_histogram.cql",
         vec!["histogram.rs"],
-        "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\n" ; "height_histogram_test"
+        "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\nHist:  (2, 8) \n\n" ; "height_histogram_test"
     )]
     #[test_case(
         "response_code_count",
         "response_code_count.cql",
         vec!["count.rs"],
-        "1\n2\n3\n4\n5\n6\n7\n" ; "response_code_count_test"
+        "1\n2\n3\n4\n5\n6\n7\n8\n" ; "response_code_count_test"
     )]
     #[test_case(
         "response_size_avg",
         "response_size_avg.cql",
         vec!["avg.rs"],
-        "1\n1\n1\n1\n1\n1\n1\n" ; "response_size_avg_test"
+        "1\n1\n1\n1\n1\n1\n1\n1\n" ; "response_size_avg_test"
     )]
     #[test_case(
         "return_test",
         "return.cql",
         vec![],
-        "1\n1\n1\n1\n1\n1\n1\n" ; "return_test"
+        "1\n1\n1\n1\n1\n1\n1\n1\n" ; "return_test"
     )]
     #[test_case(
         "return_height",
         "return_height.cql",
         vec![],
-        "2\n2\n2\n2\n2\n2\n2\n" ; "return_height_test"
+        "2\n2\n2\n2\n2\n2\n2\n2\n" ; "return_height_test"
     )]
     fn test(query_id: &str, query_name: &str, udfs: Vec<&str>, expected_output: &str) {
         // 1.Create the necessary directories
