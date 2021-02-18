@@ -67,7 +67,7 @@ minikube config set memory 4096
 pip3 install --user prometheus-api-client
 # download and unpack istio
 cd $ENV_DIR && curl -L https://istio.io/downloadIstio | \
-    ISTIO_VERSION=1.8.0 TARGET_ARCH=x86_64 sh - && cd -
+    ISTIO_VERSION=1.9.0 TARGET_ARCH=x86_64 sh - && cd -
 # Create the bin directory
 mkdir -p bin
 # Download fortio

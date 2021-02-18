@@ -11,31 +11,45 @@ import kube_util as util
 log = logging.getLogger(__name__)
 
 
-def query_storage():
-    storage_content = requests.get("http://localhost:8090/list")
+def init_storage_mon():
+    util.kill_tcp_proc(8090)
+    storage_proc = run_experiment.launch_storage_mon()
+    return storage_proc
+
+
+def query_storage(cmd="list"):
+    storage_content = requests.get(f"http://localhost:8090/{cmd}")
     return storage_content
 
 
-def main(_):
-    util.kill_tcp_proc(8090)
-    storage_proc = run_experiment.launch_storage_mon()
+def kill_storage_mon(storage_proc):
+    os.killpg(os.getpgid(storage_proc.pid), signal.SIGINT)
 
+
+def main(_):
+    storage_proc = init_storage_mon()
     log.info("Storage content:\n%s", query_storage().text)
     # kill the storage proc after the query
-    os.killpg(os.getpgid(storage_proc.pid), signal.SIGINT)
+    kill_storage_mon(storage_proc)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log-file", dest="log_file",
+    parser.add_argument("-l",
+                        "--log-file",
+                        dest="log_file",
                         default="storage.log",
                         help="Specifies name of the log file.")
-    parser.add_argument("-ll", "--log-level", dest="log_level",
-                        default="INFO",
-                        choices=["CRITICAL", "ERROR", "WARNING",
-                                 "INFO", "DEBUG", "NOTSET"],
-                        help="The log level to choose.")
-    parser.add_argument("-p", "--platform", dest="platform",
+    parser.add_argument(
+        "-ll",
+        "--log-level",
+        dest="log_level",
+        default="INFO",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
+        help="The log level to choose.")
+    parser.add_argument("-p",
+                        "--platform",
+                        dest="platform",
                         default="KB",
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."

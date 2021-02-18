@@ -14,13 +14,13 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.8.0")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.0")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/cpp_filter")
-CM_FILTER_NAME = "example-filter"
+CM_FILTER_NAME = "cpp-filter"
 # the kubernetes python API sucks, but keep this for later
 
 # from kubernetes import client
@@ -94,7 +94,8 @@ def deploy_bookinfo():
     bookinfo_dir = f"{samples_dir}/bookinfo"
     apply_cmd = "kubectl apply -f"
     book_cmd = f"{apply_cmd} {bookinfo_dir}"
-    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-mod.yaml && "
+    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-services.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
@@ -129,8 +130,9 @@ def remove_failure():
 
 def check_kubernetes_status():
     cmd = "kubectl cluster-info"
-    result = util.exec_process(
-        cmd, stdout=util.subprocess.PIPE, stderr=util.subprocess.PIPE)
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
     return result
 
 
@@ -167,13 +169,13 @@ def get_gateway_info(platform):
     if platform == "GCP":
         cmd = "kubectl -n istio-system get service istio-ingressgateway "
         cmd += "-o jsonpath={.status.loadBalancer.ingress[0].ip} "
-        ingress_host = util.get_output_from_proc(
-            cmd).decode("utf-8").replace("'", "")
+        ingress_host = util.get_output_from_proc(cmd).decode("utf-8").replace(
+            "'", "")
 
         cmd = "kubectl -n istio-system get service istio-ingressgateway "
         cmd += " -o jsonpath={.spec.ports[?(@.name==\"http2\")].port}"
-        ingress_port = util.get_output_from_proc(
-            cmd).decode("utf-8").replace("'", "")
+        ingress_port = util.get_output_from_proc(cmd).decode("utf-8").replace(
+            "'", "")
     else:
         cmd = "minikube ip"
         ingress_host = util.get_output_from_proc(cmd).decode("utf-8").rstrip()
@@ -237,7 +239,7 @@ def setup_bookinfo_deployment(platform, multizonal):
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    result = deploy_addons()
+    # result = deploy_addons()
     return result
 
 
@@ -253,45 +255,26 @@ def build_filter(filter_dir):
 
 
 def undeploy_filter():
+    # delete the config map
+    cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.warning("Failed to delete the config map.")
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
     result = util.exec_process(cmd)
-    return result
+    if result != util.EXIT_SUCCESS:
+        log.warning("Failed to delete the filter.")
+    # restore the original bookinfo
+    return deploy_bookinfo()
 
 
 def install_modded_bookinfo():
-    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-mod-filter.yaml "
+    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-filter-apps.yaml "
     result = util.exec_process(cmd)
     return result
 
 
-def deploy_filter(filter_dir):
-    # check if the config map already exists
-    cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        # create the config map with the filter
-        cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-        cmd += f"{filter_dir}/bazel-bin/filter.wasm "
-        result = util.exec_process(cmd)
-        if result != util.EXIT_SUCCESS:
-            log.error("Failed to create config map.")
-            return result
-    else:
-        log.warning("Config map %s already exists!", CM_FILTER_NAME)
-    # update the containers with the config map
-    # FIXME: There is an issue with the yaml currently, so we ignore the result
-    _ = install_modded_bookinfo()
-    result = bookinfo_wait()
-    if result != util.EXIT_SUCCESS:
-        return result
-    # now activate the filter
-    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml "
-    result = util.exec_process(cmd)
-    return result
-
-
-def refresh_filter(filter_dir):
-
+def update_conf_map(filter_dir):
     # delete the config map
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
     result = util.exec_process(cmd)
@@ -303,8 +286,42 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to create config map.")
-        return result
+    return result
 
+def deploy_filter(filter_dir):
+    # check if the config map already exists
+    cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
+    if result != util.EXIT_SUCCESS:
+        # create the config map with the filter
+        cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
+        cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            log.error("Failed to create config map.")
+            return result
+    else:
+        # Config map exists, assume that the deployment is already modded
+        log.warning("Config map %s already exists!", CM_FILTER_NAME)
+        # delete and recreate the config map
+        update_conf_map(filter_dir)
+    # update the containers with the config map
+    result = install_modded_bookinfo()
+    result = bookinfo_wait()
+    if result != util.EXIT_SUCCESS:
+        return result
+    # now activate the filter
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml "
+    result = util.exec_process(cmd)
+    return result
+
+
+def refresh_filter(filter_dir):
+
+    # delete and recreate the config map
+    update_conf_map(filter_dir)
     # this is equivalent to a deployment restart right now
     cmd = "kubectl rollout restart  deployments --namespace=default"
     result = util.exec_process(cmd)
@@ -350,53 +367,81 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log-file", dest="log_file",
+    parser.add_argument("-l",
+                        "--log-file",
+                        dest="log_file",
                         default="model.log",
                         help="Specifies name of the log file.")
-    parser.add_argument("-ll", "--log-level", dest="log_level",
-                        default="INFO",
-                        choices=["CRITICAL", "ERROR", "WARNING",
-                                 "INFO", "DEBUG", "NOTSET"],
-                        help="The log level to choose.")
-    parser.add_argument("-p", "--platform", dest="platform",
+    parser.add_argument(
+        "-ll",
+        "--log-level",
+        dest="log_level",
+        default="INFO",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
+        help="The log level to choose.")
+    parser.add_argument("-p",
+                        "--platform",
+                        dest="platform",
                         default="KB",
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."
                         "MK is minikube, GCP is Google Cloud Compute")
-    parser.add_argument("-m", "--multi-zonal", dest="multizonal",
+    parser.add_argument("-m",
+                        "--multi-zonal",
+                        dest="multizonal",
                         action="store_true",
                         help="If you are running on GCP,"
                         " do you want a multi-zone cluster?")
-    parser.add_argument("-s", "--setup", dest="setup",
+    parser.add_argument("-s",
+                        "--setup",
+                        dest="setup",
                         action="store_true",
                         help="Just do a deployment. "
                         "This means installing bookinfo and Kubernetes."
                         " Do not run any experiments.")
-    parser.add_argument("-c", "--clean", dest="clean",
+    parser.add_argument("-c",
+                        "--clean",
+                        dest="clean",
                         action="store_true",
                         help="Clean up an existing deployment. ")
-    parser.add_argument("-fd", "--filter-dir", dest="filter_dir",
+    parser.add_argument("-fd",
+                        "--filter-dir",
+                        dest="filter_dir",
                         default=FILTER_DIR,
                         help="The directory of the filter")
-    parser.add_argument("-db", "--deploy-bookinfo", dest="deploy_bookinfo",
+    parser.add_argument("-db",
+                        "--deploy-bookinfo",
+                        dest="deploy_bookinfo",
                         action="store_true",
                         help="Deploy the bookinfo app. ")
-    parser.add_argument("-rb", "--remove-bookinfo", dest="remove_bookinfo",
+    parser.add_argument("-rb",
+                        "--remove-bookinfo",
+                        dest="remove_bookinfo",
                         action="store_true",
                         help="Remove the bookinfo app. ")
-    parser.add_argument("-bf", "--build-filter", dest="build_filter",
+    parser.add_argument("-bf",
+                        "--build-filter",
+                        dest="build_filter",
                         action="store_true",
                         help="Build the WASM filter. ")
-    parser.add_argument("-df", "--deploy-filter", dest="deploy_filter",
+    parser.add_argument("-df",
+                        "--deploy-filter",
+                        dest="deploy_filter",
                         action="store_true",
                         help="Deploy the WASM filter. ")
-    parser.add_argument("-uf", "--undeploy-filter", dest="undeploy_filter",
+    parser.add_argument("-uf",
+                        "--undeploy-filter",
+                        dest="undeploy_filter",
                         action="store_true",
                         help="Remove the WASM filter. ")
-    parser.add_argument("-rf", "--refresh-filter", dest="refresh_filter",
+    parser.add_argument("-rf",
+                        "--refresh-filter",
+                        dest="refresh_filter",
                         action="store_true",
                         help="Refresh the WASM filter. ")
-    parser.add_argument("-b", "--burst", dest="burst",
+    parser.add_argument("-b",
+                        "--burst",
+                        dest="burst",
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
