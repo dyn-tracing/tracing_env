@@ -37,7 +37,9 @@ mod tests {
             str_builder.push_str("-u");
             str_builder.push_str(udf_file.to_str().unwrap());
         }
-        args.push(&str_builder);
+        if !str_builder.is_empty() {
+            args.push(&str_builder);
+        }
         let filter_file = test_dir.join("filter.rs");
         let output_flag = "-o";
         args.push(output_flag);
@@ -139,9 +141,9 @@ mod tests {
             udfs,
         );
         compile_filter_dir(&filter_test_dir);
-
+        let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
         // 4. Create the simulator and test the output
-        let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(0, None);
+        let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(0, filter_plugin.to_str());
         for tick in 0..10 {
             bookinfo_sim.tick(tick);
         }
