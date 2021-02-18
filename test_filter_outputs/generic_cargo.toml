@@ -14,6 +14,6 @@ crate-type = ["dylib"]
 path = "filter.rs"
 
 [dependencies]
-petgraph = { path = "../tracing_sim/libs/petgraph" }
-rpc_lib = { path = "../tracing_sim/libs/rpc_lib" }
-graph_utils = { path = "../tracing_sim/libs/graph_utils" }
+petgraph = { path = "../../../tracing_sim/libs/petgraph" }
+rpc_lib = { path = "../../../tracing_sim/libs/rpc_lib" }
+graph_utils = { path = "../../../tracing_sim/libs/graph_utils" }
