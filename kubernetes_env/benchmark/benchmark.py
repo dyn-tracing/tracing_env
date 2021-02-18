@@ -21,11 +21,12 @@ FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 # Haven't found a workaround
 FORTIO_DIR = Path(__file__).parent.resolve().parent.resolve().parent.resolve()
 
-def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, graph_name = "graph") : 
+def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, query, graph_name):
     plt.plot(xaxis_data, yaxis_data, marker='o')
     plt.xlabel(xaxis_label)
     plt.ylabel(yaxis_label)
-    if not check_dir("graph"):
+    plt.title(query)
+    if not check_dir("graphs"):
       os.mkdir(os.path.join(FILE_DIR, "graphs"))
     plt.savefig(os.path.join(FILE_DIR, f"graphs/{graph_name}.png"))
 
@@ -35,19 +36,9 @@ def check_dir(dirname):
 def make_dir(dirname):
     os.mkdir(os.path.join(FILE_DIR, dirname))
 
-def setup_filter(platform, multizonal):
-    result = kube_env.setup_bookinfo_deployment(
-         platform, multizonal)
-    return result
-
-def build_filter(filter_dir):
-    result = kube_env.deploy_filter(filter_dir)
-    return result
-
-def teardown(platform):
-    kube_env.stop_kubernetes(platform)
-
 def run_fortio(platform, threads, qps, run_time):
+    if not check_dir("data"):
+      make_dir("data")
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     cmd = f"{FORTIO_DIR}/bin/fortio "
     cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -json data/output.json "
@@ -55,48 +46,69 @@ def run_fortio(platform, threads, qps, run_time):
     fortio_proc = util.start_process(cmd, preexec_fn=os.setsid)
     outs, errs = fortio_proc.communicate()
 
-def parse_output(file_name="data/output.json"):
-    with open(file_name, "r") as f:
-       fortio_json = f.load(f)
-       actual_qps = fortio_json["ActualQPS"]
-       actual_duration = fortio_json["ActualDuration"]
-       print(f"Actual QPS: {actual_qps}. Actual duration: {actual_duration}")
+def get_histogram(file_name):
+    with open(f"data/{file_name}", "r") as f:
+       fortio_json = json.load(f)
+       data = fortio_json["DurationHistogram"]
+       return data
 
-def benchmark_lat(platform, threads, qps, time):
+def benchmark_filter(platform, threads, qps, time, file_name, graph_name):
     run_fortio(platform, threads, qps, time)
+    data = get_histogram(file_name)
+    if data is not None:
+      latency_data = data["Data"]
+      response_times = [resp["End"] - resp["Start"] for resp in latency_data]
+      request_counts = [resp["Count"] for resp in latency_data]
+      plot(response_times, request_counts, "Response time (ms)", 
+           "Requests", f"Platform: {platform} Threads: {threads} QPS: {qps}", graph_name)
+    else:
+      log.error("Error in processing data")
+
+def start_benchmark(filter_dirs, platform, 
+                    threads, qps, time, file_name, graph_name):
+    if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
+      log.error("Kubernetes is not set up."
+                  " Did you run the deployment script?")
+      sys.exit(util.EXIT_FAILURE)
+
+    # Undeploy current running filter
+    kube_env.undeploy_filter() 
+    for (idx, filter_dir) in enumerate(filter_dirs):
+      build_res = kube_env.build_filter(filter_dir)
+
+      if build_res != util.EXIT_SUCCESS:
+        log.error(f"Setting filter failed for {filter_dir}." 
+                    " Make sure you give the right path")
+        sys.exit(util.EXIT_FAILURE)
+
+      filter_res = kube_env.deploy_filter(filter_dir) 
+      if filter_res != util.EXIT_SUCCESS:
+        log.error(f"Setting filter failed for {filter_dir}." 
+                    " Make sure you give the right path")
+        sys.exit(util.EXIT_FAILURE)
+      
+      benchmark_filter(platform, threads, qps, time,
+                       file_name, f"{graph_name}{idx}")
+      undeploy_res = kube_env.undeploy_filter()
+      if undeploy_res != util.EXIT_SUCCESS:
+        log.error(f"Setting filter failed for {filter_dir}." 
+                    " Make sure you give the right path")
+        sys.exit(util.EXIT_FAILURE)
+      
+
 
 def main(args):
     filter_dirs = args.filter_dirs
     threads = args.threads
     qps = args.qps
-    latency = args.latency
-    latency_gname = args.latency_gname
     platform = args.platform
     time = args.time
+    file_name = args.file_name
+    graph_name = args.graph_name
+
+    start_benchmark(filter_dirs, platform, threads,
+                    qps, time, file_name, graph_name)
     
-    if not check_dir("data"):
-      make_dir("data")
-    benchmark_lat(platform, threads, qps, time)
-    parse_output()
-    '''
-    Build filters and tear down after each benchmark
-
-    for filter_dir in filter_dirs:
-      setup_res = setup_filter(args.platform, args.multizonal)
-      if setup_res != util.EXIT_SUCCESS:
-        return setup_res
-      filter_res = build_filter(args.filter_dir)
-      if filter_res != util.EXIT_SUCCESS:
-        return filter_res
-
-      # Start benchmarking
-      if latency:
-        benchmark_lat(t_requests, latency_gname, platform)
-      
-      teardown(args.platform)
-    '''
-    return util.EXIT_SUCCESS
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-l", "--log-file", dest="log_file",
@@ -118,7 +130,7 @@ if __name__ == '__main__':
                         " do you want a multi-zone cluster?")                      
     parser.add_argument("-fds", "--filter-dirs", dest="filter_dirs",
                         nargs="+", type=str,
-                        default=kube_env.FILTER_DIR,
+                        default="./cpp_filter",
                         help="List of directories of the filter")
     parser.add_argument("-th", "--threads", dest="threads",
                         type=int, default=50,
@@ -129,20 +141,12 @@ if __name__ == '__main__':
     parser.add_argument("-t", "--time", dest="time",
                         type=int, default=5,
                         help="Time for fortio")
-    parser.add_argument("-la", "--latency", dest="latency",
-                        type=bool, default=True,
-                        help="Measure latency or not?")
-    parser.add_argument("-tp", "--throughput", dest="throughput",
-                       type=bool, default=False,
-                       help="Measure throughput or not?")
-    parser.add_argument("--lat-gname", "--latency-graph-name",
-                       dest="latency_gname", type=str,
-                       default="latency-graph",
-                       help="Name for latency graph")
-    parser.add_argument("--tp-gname", "--throughput-graph-name",
-                      dest="throughput_gname", type=str,
-                      default="throughput-graph",
-                      help="Name for throughput graph")
+    parser.add_argument("-fname", "--file-name", dest="file_name",
+                        type=str, default="output.json",
+                        help="JSON file for fortio to write to")
+    parser.add_argument("-gname", "--graph-name", dest="graph_name",
+                        type=str, default="benchmark",
+                        help="Graph file to output to")
 
     # Parse options and process argv
     arguments = parser.parse_args()
