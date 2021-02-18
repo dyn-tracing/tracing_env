@@ -1,3 +1,6 @@
+##################################################################################################
+# Details service
+##################################################################################################
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,17 +16,14 @@ spec:
       version: v1
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
-        version: v1
         app: details
+        version: v1
     spec:
       serviceAccountName: bookinfo-details
       containers:
       - name: details
-        image: docker.io/istio/examples-bookinfo-details-v1:latest
+        image: docker.io/istio/examples-bookinfo-details-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -48,17 +48,14 @@ spec:
       version: v1
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
-        version: v1
         app: ratings
+        version: v1
     spec:
       serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v1:latest
+        image: docker.io/istio/examples-bookinfo-ratings-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
@@ -83,17 +80,14 @@ spec:
       version: v1
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
-        version: v1
         app: reviews
+        version: v1
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:latest
+        image: docker.io/istio/examples-bookinfo-reviews-v2:1.16.2
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -128,17 +122,14 @@ spec:
       version: v2
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
-        version: v2
         app: reviews
+        version: v2
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:latest
+        image: docker.io/istio/examples-bookinfo-reviews-v2:1.16.2
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -173,17 +164,14 @@ spec:
       version: v3
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
-        version: v3
         app: reviews
+        version: v3
     spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v3:latest
+        image: docker.io/istio/examples-bookinfo-reviews-v3:1.16.2
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -222,16 +210,13 @@ spec:
   template:
     metadata:
       labels:
-        version: v1
         app: productpage
-      annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
-        sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
+        version: v1
     spec:
       serviceAccountName: bookinfo-productpage
       containers:
       - name: productpage
-        image: docker.io/istio/examples-bookinfo-productpage-v1:latest
+        image: docker.io/istio/examples-bookinfo-productpage-v1:1.16.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080

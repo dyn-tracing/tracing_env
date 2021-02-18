@@ -35,15 +35,21 @@ def main(_):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log-file", dest="log_file",
+    parser.add_argument("-l",
+                        "--log-file",
+                        dest="log_file",
                         default="storage.log",
                         help="Specifies name of the log file.")
-    parser.add_argument("-ll", "--log-level", dest="log_level",
-                        default="INFO",
-                        choices=["CRITICAL", "ERROR", "WARNING",
-                                 "INFO", "DEBUG", "NOTSET"],
-                        help="The log level to choose.")
-    parser.add_argument("-p", "--platform", dest="platform",
+    parser.add_argument(
+        "-ll",
+        "--log-level",
+        dest="log_level",
+        default="INFO",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
+        help="The log level to choose.")
+    parser.add_argument("-p",
+                        "--platform",
+                        dest="platform",
                         default="KB",
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."
