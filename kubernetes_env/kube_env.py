@@ -20,7 +20,7 @@ YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/cpp_filter")
-CM_FILTER_NAME = "example-filter"
+CM_FILTER_NAME = "cpp-filter"
 # the kubernetes python API sucks, but keep this for later
 
 # from kubernetes import client
@@ -94,8 +94,8 @@ def deploy_bookinfo():
     bookinfo_dir = f"{samples_dir}/bookinfo"
     apply_cmd = "kubectl apply -f"
     book_cmd = f"{apply_cmd} {bookinfo_dir}"
-    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
     cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-services.yaml && "
+    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
@@ -286,8 +286,7 @@ def update_conf_map(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to create config map.")
-        return result
-
+    return result
 
 def deploy_filter(filter_dir):
     # check if the config map already exists
