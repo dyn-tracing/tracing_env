@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
         app: details
@@ -49,7 +49,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
         app: ratings
@@ -84,7 +84,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
         app: reviews
@@ -129,7 +129,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
         app: reviews
@@ -174,7 +174,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
       labels:
         app: reviews
@@ -225,7 +225,7 @@ spec:
         app: productpage
         version: v1
       annotations:
-        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "example-filter"}}]'
+        sidecar.istio.io/userVolume: '[{"name":"wasmfilters-dir","configMap": {"name": "cpp-filter"}}]'
         sidecar.istio.io/userVolumeMount: '[{"mountPath":"/var/local/lib/wasm-filters","name":"wasmfilters-dir"}]'
     spec:
       serviceAccountName: bookinfo-productpage

@@ -95,7 +95,7 @@ def deploy_bookinfo():
     apply_cmd = "kubectl apply -f"
     book_cmd = f"{apply_cmd} {bookinfo_dir}"
     cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-services.yaml && "
-    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
