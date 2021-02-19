@@ -250,7 +250,7 @@ def build_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-
+    log.info("Build successful!")
     return result
 
 
