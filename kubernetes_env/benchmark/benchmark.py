@@ -24,11 +24,12 @@ DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
 
 
-def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, query, graph_name):
-    plt.plot(xaxis_data, yaxis_data, marker='o')
-    plt.xlabel(xaxis_label)
-    plt.ylabel(yaxis_label)
-    plt.title(query)
+def plot(x, y, x_label, y_label, query, graph_name, **general_info):
+    extra_info = ". ".join(f"{k}: {v:.4f}" for k, v in general_info.items())
+    plt.title(f"{query}.\n{extra_info}", fontsize='small')
+    plt.plot(x, y, marker='o')
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     util.check_dir(GRAPHS_DIR)
     plt.savefig(str(GRAPHS_DIR.joinpath(f"{graph_name}.png")))
 
@@ -48,24 +49,33 @@ def run_fortio(platform, threads, qps, run_time):
         return fortio_res
 
 
-def get_histogram(file_name):
+def get_data(file_name):
     with open(f"data/{file_name}", "r") as f:
         fortio_json = json.load(f)
-        data = fortio_json["DurationHistogram"]
-        return data
+        return fortio_json
 
 
 def benchmark_filter(platform, threads, qps, time, file_name, graph_name):
     fortio_res = run_fortio(platform, threads, qps, time)
     if fortio_res == util.EXIT_FAILURE:
         return fortio_res
-    data = get_histogram(file_name)
+    data = get_data(file_name)
     if data is not None:
-        latency_data = data["Data"]
-        response_times = [resp["End"] - resp["Start"] for resp in latency_data]
-        request_counts = [resp["Count"] for resp in latency_data]
-        plot(response_times, request_counts, "Response time (ms)", "Requests",
-             f"Platform: {platform} Threads: {threads} QPS: {qps}", graph_name)
+        histogram_data = data["DurationHistogram"]
+        latency = histogram_data["Data"]
+        response_times = [resp["End"] - resp["Start"] for resp in latency]
+        request_counts = [resp["Count"] for resp in latency]
+        plot(response_times,
+             request_counts,
+             "Response time (ms)",
+             "Count",
+             f"Platform: {platform}. Threads: {threads}. QPS: {qps}",
+             graph_name,
+             count=histogram_data["Count"],
+             min_val=histogram_data["Min"],
+             max_val=histogram_data["Max"],
+             average=histogram_data["Avg"],
+             std=histogram_data["StdDev"])
         return util.EXIT_SUCCESS
     else:
         log.error("Error in processing data")
@@ -83,13 +93,13 @@ def start_benchmark(filter_dirs, platform, threads, qps, time, file_name,
         build_res = kube_env.build_filter(filter_dir)
 
         if build_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
+            log.error(f"Building filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
         filter_res = kube_env.deploy_filter(filter_dir)
         if filter_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
+            log.error(f"Deploying filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
@@ -101,7 +111,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, time, file_name,
 
         undeploy_res = kube_env.undeploy_filter()
         if undeploy_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
+            log.error(f"Undeploy filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
     return util.EXIT_SUCCESS
@@ -158,7 +168,7 @@ if __name__ == '__main__':
                         "--threads",
                         dest="threads",
                         type=int,
-                        default=50,
+                        default=4,
                         help="Number of threads")
     parser.add_argument("-qps",
                         dest="qps",
