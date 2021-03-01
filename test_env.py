@@ -24,6 +24,7 @@ COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
+
 class TestClassKubernetes:
     @classmethod
     def setup_class(cls):
@@ -33,9 +34,12 @@ class TestClassKubernetes:
         result = kube_env.setup_bookinfo_deployment("MK", False)
         assert result == util.EXIT_SUCCESS
 
-
     def test_count(self):
         result = query_tests.test_count()
+        assert result == util.EXIT_SUCCESS
+
+    def test_return_height(self):
+        result = query_tests.test_return_height()
         assert result == util.EXIT_SUCCESS
 
     @classmethod

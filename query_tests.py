@@ -41,10 +41,7 @@ def generate_filter(filter_name, udfs):
     return result
 
 
-def test_count():
-    # generate the filter code
-    result = generate_filter("count.cql", ["count.cc"])
-    assert result == util.EXIT_SUCCESS
+def bootstrap():
     # build the filter
     log.info("Building the filter")
     result = kube_env.build_filter(kube_env.FILTER_DIR)
@@ -58,6 +55,16 @@ def test_count():
     log.info("Cleaning storage")
     storage_proc = storage.init_storage_mon()
     storage.query_storage("clean")
+    return storage_proc
+
+
+def test_count():
+    # generate the filter code
+    result = generate_filter("count.cql", ["count.cc"])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
 
     # first request
     log.info("Sending request #1")
@@ -84,12 +91,34 @@ def test_count():
     assert "3" in result_set
 
     storage.kill_storage_mon(storage_proc)
-    log.info("Count test succeeded.")
+    log.info("count test succeeded.")
+    return util.EXIT_SUCCESS
+
+
+def test_return_height():
+    # generate the filter code
+    result = generate_filter("return_height.cql", [])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request()
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "2" in result_set
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("return_height test succeeded.")
     return util.EXIT_SUCCESS
 
 
 def main(args):
-    test_count()
+    # test_count()
+    test_return_height()
 
 
 if __name__ == '__main__':
