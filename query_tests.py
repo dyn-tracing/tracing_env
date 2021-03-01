@@ -13,7 +13,7 @@ import kubernetes_env.query_storage as storage
 FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
-QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
+QUERY_DIR = COMPILER_DIR.joinpath("example_queries/old")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
 log = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def test_count():
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "1" in result_set
+    assert "1" in result_set, "expected 1 received %s" % result_set
 
     # second request
     log.info("Sending request #2")
@@ -80,7 +80,7 @@ def test_count():
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "2" in result_set
+    assert "2" in result_set, "expected 2 received %s" % result_set
 
     # third request
     log.info("Sending request #3")
@@ -88,7 +88,7 @@ def test_count():
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "3" in result_set
+    assert "3" in result_set, "expected 3 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
     log.info("count test succeeded.")
@@ -109,7 +109,7 @@ def test_return_height():
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "2" in result_set
+    assert "2" in result_set, "expected 2 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
     log.info("return_height test succeeded.")
