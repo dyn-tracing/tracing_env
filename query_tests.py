@@ -30,22 +30,27 @@ def process_response(text):
     return result_dict
 
 
-def test_count():
-    # generate the filter code
-    log.info("Generating the filter")
+def generate_filter(filter_name, udfs):
+    log.info("Generating the filter %s with udfs %s", filter_name, udfs)
     cmd = f"{COMPILER_BINARY} "
-    cmd += f"-q {QUERY_DIR.joinpath('count.cql')} "
-    cmd += f"-u {UDF_DIR.joinpath('count.cc')} "
+    cmd += f"-q {QUERY_DIR.joinpath(filter_name)} "
+    for udf in udfs:
+        cmd += f"-u {UDF_DIR.joinpath(udf)} "
     cmd += "-r productpage-v1 "
     result = util.exec_process(cmd)
+    return result
+
+
+def test_count():
+    # generate the filter code
+    result = generate_filter("count.cql", ["count.cc"])
     assert result == util.EXIT_SUCCESS
     # build the filter
     log.info("Building the filter")
     result = kube_env.build_filter(kube_env.FILTER_DIR)
     assert result == util.EXIT_SUCCESS
-    # deploy the filter
-    log.info("Deploying the filter")
-    result = kube_env.deploy_filter(kube_env.FILTER_DIR)
+    log.info("Refresh the filter")
+    result = kube_env.refresh_filter(kube_env.FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 10 seconds")
     time.sleep(10)
@@ -89,14 +94,18 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--log-file", dest="log_file",
+    parser.add_argument("-l",
+                        "--log-file",
+                        dest="log_file",
                         default="filter_test.log",
                         help="Specifies name of the log file.")
-    parser.add_argument("-ll", "--log-level", dest="log_level",
-                        default="INFO",
-                        choices=["CRITICAL", "ERROR", "WARNING",
-                                 "INFO", "DEBUG", "NOTSET"],
-                        help="The log level to choose.")
+    parser.add_argument(
+        "-ll",
+        "--log-level",
+        dest="log_level",
+        default="INFO",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
+        help="The log level to choose.")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging

@@ -268,10 +268,17 @@ def undeploy_filter():
     return deploy_bookinfo()
 
 
-def install_modded_bookinfo():
-    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-filter-apps.yaml "
-    result = util.exec_process(cmd)
-    return result
+def patch_bookinfo():
+    cmd = "kubectl get deploy -o name"
+    deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
+    deployments = deployments.split("\n")
+    for depl in deployments:
+        patch_cmd = f"kubectl patch {depl} "
+        patch_cmd += f"--patch-file {YAML_DIR}/cm_patch.yaml "
+        result = util.exec_process(patch_cmd)
+        if result != util.EXIT_SUCCESS:
+            log.error("Failed to patch %s.", depl)
+    return util.EXIT_SUCCESS
 
 
 def update_conf_map(filter_dir):
@@ -280,6 +287,9 @@ def update_conf_map(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map.")
+        log.warning("Assuming a patch is required.")
+        # update the containers with the config map
+        result = patch_bookinfo()
     # "refresh" it by recreating the config map
     cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
     cmd += f"{filter_dir}/bazel-bin/filter.wasm "
@@ -287,6 +297,7 @@ def update_conf_map(filter_dir):
     if result != util.EXIT_SUCCESS:
         log.error("Failed to create config map.")
     return result
+
 
 def deploy_filter(filter_dir):
     # check if the config map already exists
@@ -308,7 +319,9 @@ def deploy_filter(filter_dir):
         # delete and recreate the config map
         update_conf_map(filter_dir)
     # update the containers with the config map
-    result = install_modded_bookinfo()
+    result = patch_bookinfo()
+    if result != util.EXIT_SUCCESS:
+        return result
     result = bookinfo_wait()
     if result != util.EXIT_SUCCESS:
         return result
@@ -322,6 +335,12 @@ def refresh_filter(filter_dir):
 
     # delete and recreate the config map
     update_conf_map(filter_dir)
+
+    # activate the filter
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
     # this is equivalent to a deployment restart right now
     cmd = "kubectl rollout restart  deployments --namespace=default"
     result = util.exec_process(cmd)
