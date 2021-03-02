@@ -105,20 +105,22 @@ FilterHeadersStatus BidiContext::onRequestHeaders(uint32_t, bool) {
 
 FilterHeadersStatus BidiContext::onRequestHeadersInbound() {
   LOG_WARN("Traversed.");
+  int counter = 0;
   int max = 1000000;
   for(int i = 0; i < max; i++) {
-    max += 1;
-    std::cout << max;
+    counter += 1;
+    std::cout << counter;
   }
   return FilterHeadersStatus::Continue;
 }
 
 FilterHeadersStatus BidiContext::onRequestHeadersOutbound() {
   LOG_WARN("Traversed.");
+  int counter = 0;
   int max = 1000000;
   for(int i = 0; i < max; i++) {
-    max += 1;
-    std::cout << max;
+    counter += 1;
+    std::cout << counter;
   }
   return FilterHeadersStatus::Continue;
 }
