@@ -82,8 +82,9 @@ def benchmark_filter(platform, threads, qps, time, file_name, graph_name):
         return util.EXIT_FAILURE
 
 
-def start_benchmark(filter_dirs, platform, threads, qps, time, file_name,
-                    graph_name):
+def start_benchmark(fortio, filter_dirs, platform, threads, qps, time,
+                    file_name, graph_name):
+    benchmark_func = benchmark_filter if fortio else benchmark_filter_burst
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
@@ -103,8 +104,8 @@ def start_benchmark(filter_dirs, platform, threads, qps, time, file_name,
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        benchmark_res = benchmark_filter(platform, threads, qps, time,
-                                         file_name, f"{graph_name}{idx}")
+        benchmark_res = benchmark_func(platform, threads, qps, time, file_name,
+                                       f"{graph_name}{idx}")
         if benchmark_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {filter_dir}")
             return util.EXIT_FAILURE
@@ -125,9 +126,30 @@ def main(args):
     time = args.time
     file_name = args.file_name
     graph_name = args.graph_name
+    fortio = args.fortio
 
-    return start_benchmark(filter_dirs, platform, threads, qps, time,
-                           file_name, graph_name)
+    if args.gateway:
+        _, _, gateway_url = kube_env.get_gateway_info(platform)
+        print(gateway_url)
+    elif args.log_app:
+        app = args.log_app
+        proxy = args.proxy
+        cmd = "kubectl logs "
+        cmd += f"`(kubectl get pods -lapp={app}" 
+        cmd += " -o jsonpath={.items[0].metadata.name})` "
+        if proxy:
+            cmd += "istio-proxy"
+        else:
+            cmd += app
+
+        res = util.exec_process(cmd)
+        if res == 0:
+            log.info("Success")
+        else:
+            log.info("Something wrong happened")
+    else:
+        return start_benchmark(fortio, filter_dirs, platform, threads, qps,
+                               time, file_name, graph_name)
 
 
 if __name__ == '__main__':
@@ -193,6 +215,28 @@ if __name__ == '__main__':
                         type=str,
                         default="benchmark",
                         help="Graph file to output to")
+    parser.add_argument("-fo",
+                        "--fortio",
+                        dest="fortio",
+                        type=bool,
+                        help="Running fortio or not")
+
+    parser.add_argument("-gw",
+                        "--gateway",
+                        dest="gateway",
+                        type=bool,
+                        help="Printing out gateway")
+    parser.add_argument("-la",
+                        "--lapp",
+                        dest="log_app",
+                        type=str,
+                        help="App to log")
+    parser.add_argument("-px",
+                        "--proxy",
+                        dest="proxy",
+                        type=bool,
+                        help="Log proxy or not")
+
 
     # Parse options and process argv
     arguments = parser.parse_args()
