@@ -84,7 +84,6 @@ def benchmark_filter(platform, threads, qps, time, file_name, graph_name):
 
 def start_benchmark(fortio, filter_dirs, platform, threads, qps, time,
                     file_name, graph_name):
-    benchmark_func = benchmark_filter if fortio else benchmark_filter_burst
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
@@ -104,7 +103,7 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time,
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        benchmark_res = benchmark_func(platform, threads, qps, time, file_name,
+        benchmark_res = benchmark_filter(platform, threads, qps, time, file_name,
                                        f"{graph_name}{idx}")
         if benchmark_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {filter_dir}")
