@@ -12,8 +12,8 @@
 #include <string>
 #include <unordered_map>
 #include <iostream>
+#include <ctime>
 #include "proxy_wasm_intrinsics.h"
-
 
 // TrafficDirection is a mirror of envoy xDS traffic direction.
 // As defined in istio/proxy/extensions/common/context.h
@@ -106,22 +106,31 @@ FilterHeadersStatus BidiContext::onRequestHeaders(uint32_t, bool) {
 FilterHeadersStatus BidiContext::onRequestHeadersInbound() {
   LOG_WARN("Traversed.");
   int counter = 0;
-  int max = 1000000;
+  int max = 1000;
+  int start_s = clock(); 
   for(int i = 0; i < max; i++) {
     counter += 1;
-    std::cout << counter;
+    std::cout << counter << "\n";
   }
+  int stop_s = clock();
+  double timestamp = (stop_s - start_s) / double(CLOCKS_PER_SEC);
+  std::string time = "Time" + std::to_string(timestamp);
+  LOG_WARN(time);
   return FilterHeadersStatus::Continue;
 }
 
 FilterHeadersStatus BidiContext::onRequestHeadersOutbound() {
   LOG_WARN("Traversed.");
-  int counter = 0;
-  int max = 1000000;
-  for(int i = 0; i < max; i++) {
-    counter += 1;
-    std::cout << counter;
+  int counter = 1000;
+  int start_s = clock();
+  for(int i = 0; i >= 0; i++) {
+    counter -= 1;
+    std::cout << counter << "\n";
   }
+  int stop_s = clock();
+  double timestamp = (stop_s - start_s) / double(CLOCKS_PER_SEC);
+  std::string time = "Time" + std::to_string(timestamp);
+  LOG_WARN(time);
   return FilterHeadersStatus::Continue;
 }
 
