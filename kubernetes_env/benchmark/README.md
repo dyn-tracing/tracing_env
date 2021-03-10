@@ -15,4 +15,9 @@ send a request
 `./kubernetes_env/send_request.py`
 
 
+# Installation
+Other than the installation for kubernetes and set up, you will need to run:
 
+```
+pip3 install seaborn pandas
+```

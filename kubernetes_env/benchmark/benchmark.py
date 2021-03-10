@@ -7,6 +7,8 @@ import sys
 import signal
 import requests
 import time
+import seaborn as sns
+import pandas as pd
 import matplotlib.pyplot as plt
 import json
 from pathlib import Path
@@ -23,20 +25,85 @@ GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
 
+def sec_to_ms(res_time):
+    return round(float(res_time) * 1000, 3)
 
-def plot(xaxis_data, yaxis_data, xaxis_label, yaxis_label, query, graph_name):
-    plt.plot(xaxis_data, yaxis_data, marker='o')
-    plt.xlabel(xaxis_label)
-    plt.ylabel(yaxis_label)
-    plt.title(query)
+
+def convert_data(data):
+    return {
+        "Count":
+        data["Count"],
+        "Min":
+        sec_to_ms(data["Min"]),
+        "Max":
+        sec_to_ms(data["Max"]),
+        "Sum":
+        sec_to_ms(data["Sum"]),
+        "Avg":
+        sec_to_ms(data["Avg"]),
+        "StdDev":
+        sec_to_ms(data["StdDev"]),
+        "Data": [{
+            "Start": sec_to_ms(datum["Start"]),
+            "End": sec_to_ms(datum["End"]),
+            "Percent": datum["Percent"],
+            "Count": datum["Count"]
+        } for datum in data["Data"]]
+    }
+
+
+def plot(files):
+    fs = []
+    log.info("Plotting...")
+    names = []
+    json_data = []
+    for f in files:
+        names.append(f.name.replace(".json", ""))
+        with f.open() as jsonf:
+            json_data.append(json.load(jsonf))
+    converted_durations = [
+        convert_data(data["DurationHistogram"]) for data in json_data
+    ]
+    dfs = []
+    title = ""
+    for (idx, converted_duration) in enumerate(converted_durations):
+        res_times = [0]
+        percentiles = [0]
+        avg = converted_duration["Avg"]
+        title += f"{names[idx]} Avg: {avg} ms. "
+        for datum in converted_duration["Data"]:
+            res_times.append(datum["Start"])
+            res_times.append(datum["End"])
+            percentiles.append(float(datum["Percent"]))
+            percentiles.append(float(datum["Percent"]))
+            d = {
+                "Response time (ms)": res_times,
+                "Percentiles": percentiles,
+                "Filter": names[idx]
+            }
+            df = pd.DataFrame(data=d)
+            dfs.append(df)
+    final_df = pd.concat(dfs)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.lineplot(data=final_df,
+                 x="Response time (ms)",
+                 y="Percentiles",
+                 hue="Filter",
+                 ci=False,
+                 marker='o')
+    plt.title(title)
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()));
+    plot_name = "-".join(names) + timestamp
     util.check_dir(GRAPHS_DIR)
-    plt.savefig(str(GRAPHS_DIR.joinpath(f"{graph_name}.png")))
+    plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
+    log.info("Finished plotting. Check out the graphs directory!")
+    return util.EXIT_SUCCESS
 
 
-def run_fortio(platform, threads, qps, run_time):
+def run_fortio(platform, threads, qps, run_time, file_name):
     util.check_dir(DATA_DIR)
     _, _, gateway_url = kube_env.get_gateway_info(platform)
-    output_file = str(DATA_DIR.joinpath("output.json"))
+    output_file = str(DATA_DIR.joinpath(f"{file_name}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} "
     cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -json {output_file} "
@@ -48,63 +115,39 @@ def run_fortio(platform, threads, qps, run_time):
         return fortio_res
 
 
-def get_histogram(file_name):
-    with open(f"data/{file_name}", "r") as f:
-        fortio_json = json.load(f)
-        data = fortio_json["DurationHistogram"]
-        return data
-
-
-def benchmark_filter(platform, threads, qps, time, file_name, graph_name):
-    fortio_res = run_fortio(platform, threads, qps, time)
-    if fortio_res == util.EXIT_FAILURE:
-        return fortio_res
-    data = get_histogram(file_name)
-    if data is not None:
-        latency_data = data["Data"]
-        response_times = [resp["End"] - resp["Start"] for resp in latency_data]
-        request_counts = [resp["Count"] for resp in latency_data]
-        plot(response_times, request_counts, "Response time (ms)", "Requests",
-             f"Platform: {platform} Threads: {threads} QPS: {qps}", graph_name)
-        return util.EXIT_SUCCESS
-    else:
-        log.error("Error in processing data")
-        return util.EXIT_FAILURE
-
-
-def start_benchmark(filter_dirs, platform, threads, qps, time, file_name,
-                    graph_name):
+def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
 
-    for (idx, filter_dir) in enumerate(filter_dirs):
-        build_res = kube_env.build_filter(filter_dir)
+    for f in DATA_DIR.glob("*"):
+        if f.is_file():
+            f.unlink()
+    for (idx, fd) in enumerate(filter_dirs):
+        build_res = kube_env.build_filter(fd)
 
         if build_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
+            log.error(f"Building filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        filter_res = kube_env.deploy_filter(filter_dir)
+        filter_res = kube_env.refresh_filter(fd)
         if filter_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
+            log.error(f"Deploying filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        benchmark_res = benchmark_filter(platform, threads, qps, time,
-                                         file_name, f"{graph_name}{idx}")
-        if benchmark_res != util.EXIT_SUCCESS:
+        log.info("Running fortio...")
+        # Might break for filter_dir/
+        fname = fd.split("/")[-1]
+        fortio_res = run_fortio(platform, threads, qps, time, fname)
+        if fortio_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {filter_dir}")
             return util.EXIT_FAILURE
 
-        undeploy_res = kube_env.undeploy_filter()
-        if undeploy_res != util.EXIT_SUCCESS:
-            log.error(f"Setting filter failed for {filter_dir}."
-                      " Make sure you give the right path")
-            return util.EXIT_FAILURE
-    return util.EXIT_SUCCESS
+    dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
+    return plot(dataf)
 
 
 def main(args):
@@ -113,11 +156,9 @@ def main(args):
     qps = args.qps
     platform = args.platform
     time = args.time
-    file_name = args.file_name
-    graph_name = args.graph_name
+    fortio = args.fortio
 
-    return start_benchmark(filter_dirs, platform, threads, qps, time,
-                           file_name, graph_name)
+    return start_benchmark(fortio, filter_dirs, platform, threads, qps, time)
 
 
 if __name__ == '__main__':
@@ -158,7 +199,7 @@ if __name__ == '__main__':
                         "--threads",
                         dest="threads",
                         type=int,
-                        default=50,
+                        default=4,
                         help="Number of threads")
     parser.add_argument("-qps",
                         dest="qps",
@@ -171,19 +212,11 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help="Time for fortio")
-    parser.add_argument("-fname",
-                        "--file-name",
-                        dest="file_name",
-                        type=str,
-                        default="output.json",
-                        help="JSON file for fortio to write to")
-    parser.add_argument("-gname",
-                        "--graph-name",
-                        dest="graph_name",
-                        type=str,
-                        default="benchmark",
-                        help="Graph file to output to")
-
+    parser.add_argument("-fo",
+                        "--fortio",
+                        dest="fortio",
+                        type=bool,
+                        help="Running fortio or not")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
