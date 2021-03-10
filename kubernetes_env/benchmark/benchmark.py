@@ -25,7 +25,6 @@ GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
 
-
 def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
 
@@ -55,51 +54,50 @@ def convert_data(data):
 
 def plot(files):
     fs = []
-    try:
-        names = []
-        for f in files:
-            names.append(f.replace(".json", ""))
-            fs.append(open(str(DATA_DIR.joinpath(f)), 'r'))
-        json_data = []
-        for f in fs:
-            json_data.append(json.load(f))
-        converted_durations = [
-            convert_data(data["DurationHistogram"]) for data in json_data
-        ]
-        dfs = []
-        title = ""
-        for (idx, converted_duration) in enumerate(converted_durations):
-            res_times = [0]
-            percentiles = [0]
-            avg = converted_duration["Avg"]
-            title += f"{names[idx]} Avg: {avg} ms"
-            for datum in converted_duration["Data"]:
-                res_times.append(datum["Start"])
-                res_times.append(datum["End"])
-                percentiles.append(float(datum["Percent"]))
-                percentiles.append(float(datum["Percent"]))
-                d = {
-                    "Response time (ms)": res_times,
-                    "Percentiles": percentiles,
-                    "Filter": names[idx]
-                }
-                df = pd.DataFrame(data=d)
-                dfs.append(df)
-        final_df = pd.concat(dfs)
-        fig, ax = plt.subplots(figsize=(12, 6))
-        sns.lineplot(data=final_df,
-                     x="Response time (ms)",
-                     y="Percentiles",
-                     hue="Filter",
-                     ci=False,
-                     marker='o')
-        plt.title(title)
-        plot_name = "-".join(names)
-        util.check_dir(GRAPHS_DIR)
-        plt.savefig(str(GRAPHS_DIR.joinpath(f"{plot_name}.png")))
-    finally:
-        for f in fs:
-            f.close()
+    log.info("Plotting...")
+    names = []
+    json_data = []
+    for f in files:
+        names.append(f.name.replace(".json", ""))
+        with f.open() as jsonf:
+            json_data.append(json.load(jsonf))
+    converted_durations = [
+        convert_data(data["DurationHistogram"]) for data in json_data
+    ]
+    dfs = []
+    title = ""
+    for (idx, converted_duration) in enumerate(converted_durations):
+        res_times = [0]
+        percentiles = [0]
+        avg = converted_duration["Avg"]
+        title += f"{names[idx]} Avg: {avg} ms. "
+        for datum in converted_duration["Data"]:
+            res_times.append(datum["Start"])
+            res_times.append(datum["End"])
+            percentiles.append(float(datum["Percent"]))
+            percentiles.append(float(datum["Percent"]))
+            d = {
+                "Response time (ms)": res_times,
+                "Percentiles": percentiles,
+                "Filter": names[idx]
+            }
+            df = pd.DataFrame(data=d)
+            dfs.append(df)
+    final_df = pd.concat(dfs)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    sns.lineplot(data=final_df,
+                 x="Response time (ms)",
+                 y="Percentiles",
+                 hue="Filter",
+                 ci=False,
+                 marker='o')
+    plt.title(title)
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()));
+    plot_name = "-".join(names) + timestamp
+    util.check_dir(GRAPHS_DIR)
+    plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
+    log.info("Finished plotting. Check out the graphs directory!")
+    return util.EXIT_SUCCESS
 
 
 def run_fortio(platform, threads, qps, run_time, file_name):
@@ -123,6 +121,9 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
 
+    for f in DATA_DIR.glob("*"):
+        if f.is_file():
+            f.unlink()
     for (idx, fd) in enumerate(filter_dirs):
         build_res = kube_env.build_filter(fd)
 
@@ -136,19 +137,17 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
             log.error(f"Deploying filter failed for {filter_dir}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
-        log.info("Benchmarking...")
+
+        log.info("Running fortio...")
+        # Might break for filter_dir/
         fname = fd.split("/")[-1]
         fortio_res = run_fortio(platform, threads, qps, time, fname)
         if fortio_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {filter_dir}")
             return util.EXIT_FAILURE
 
-    dataf = [
-        f for f in os.listdir(DATA_DIR)
-        if os.path.isfile(DATA_DIR.joinpath(f))
-    ]
-    plot(dataf)
-    return util.EXIT_SUCCESS
+    dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
+    return plot(dataf)
 
 
 def main(args):
@@ -159,28 +158,7 @@ def main(args):
     time = args.time
     fortio = args.fortio
 
-    if args.gateway:
-        _, _, gateway_url = kube_env.get_gateway_info(platform)
-        print(gateway_url)
-    elif args.log_app:
-        app = args.log_app
-        proxy = args.proxy
-        cmd = "kubectl logs "
-        cmd += f"`(kubectl get pods -lapp={app}"
-        cmd += " -o jsonpath={.items[0].metadata.name})` "
-        if proxy:
-            cmd += "istio-proxy"
-        else:
-            cmd += app
-
-        res = util.exec_process(cmd)
-        if res == 0:
-            log.info("Success")
-        else:
-            log.info("Something wrong happened")
-    else:
-        return start_benchmark(fortio, filter_dirs, platform, threads, qps,
-                               time)
+    return start_benchmark(fortio, filter_dirs, platform, threads, qps, time)
 
 
 if __name__ == '__main__':
@@ -239,21 +217,6 @@ if __name__ == '__main__':
                         dest="fortio",
                         type=bool,
                         help="Running fortio or not")
-
-    parser.add_argument("-gw",
-                        "--gateway",
-                        dest="gateway",
-                        help="Printing out gateway")
-    parser.add_argument("-la",
-                        "--lapp",
-                        dest="log_app",
-                        type=str,
-                        help="App to log")
-    parser.add_argument("-px",
-                        "--proxy",
-                        dest="proxy",
-                        help="Log proxy or not")
-
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
