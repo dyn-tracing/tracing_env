@@ -58,7 +58,7 @@ def bootstrap():
     return storage_proc
 
 
-def test_count(args):
+def test_count(platform="MK"):
     # generate the filter code
     result = generate_filter("count.cql", ["count.cc"])
     assert result == util.EXIT_SUCCESS
@@ -68,7 +68,7 @@ def test_count(args):
 
     # first request
     log.info("Sending request #1")
-    requests.send_request(args.platform)
+    requests.send_request(platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -76,7 +76,7 @@ def test_count(args):
 
     # second request
     log.info("Sending request #2")
-    requests.send_request(args.platform)
+    requests.send_request(platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -84,7 +84,7 @@ def test_count(args):
 
     # third request
     log.info("Sending request #3")
-    requests.send_request(args.platform)
+    requests.send_request(platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -95,7 +95,7 @@ def test_count(args):
     return util.EXIT_SUCCESS
 
 
-def test_return_height(args):
+def test_return_height(platform="MK"):
     # generate the filter code
     result = generate_filter("return_height.cql", [])
     assert result == util.EXIT_SUCCESS
@@ -105,7 +105,7 @@ def test_return_height(args):
 
     # first request
     log.info("Sending request #1")
-    requests.send_request(args.platform)
+    requests.send_request(platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -117,8 +117,8 @@ def test_return_height(args):
 
 
 def main(args):
-    test_count(args)
-    test_return_height(args)
+    test_count(args.platform)
+    test_return_height(args.platform)
 
 
 if __name__ == '__main__':

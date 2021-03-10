@@ -35,11 +35,11 @@ class TestClassKubernetes:
         assert result == util.EXIT_SUCCESS
 
     def test_count(self):
-        result = query_tests.test_count()
+        result = query_tests.test_count("MK")
         assert result == util.EXIT_SUCCESS
 
     def test_return_height(self):
-        result = query_tests.test_return_height()
+        result = query_tests.test_return_height("MK")
         assert result == util.EXIT_SUCCESS
 
     @classmethod
