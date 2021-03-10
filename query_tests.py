@@ -14,7 +14,7 @@ FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries/old")
-UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
+UDF_DIR = COMPILER_DIR.joinpath("example_udfs/old")
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ def bootstrap():
     result = kube_env.refresh_filter(kube_env.FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 10 seconds")
-    time.sleep(10)
+    time.sleep(20)
     # first, clean the storage
     log.info("Cleaning storage")
     storage_proc = storage.init_storage_mon()
@@ -58,7 +58,7 @@ def bootstrap():
     return storage_proc
 
 
-def test_count():
+def test_count(args):
     # generate the filter code
     result = generate_filter("count.cql", ["count.cc"])
     assert result == util.EXIT_SUCCESS
@@ -68,7 +68,7 @@ def test_count():
 
     # first request
     log.info("Sending request #1")
-    requests.send_request()
+    requests.send_request(args.platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -76,7 +76,7 @@ def test_count():
 
     # second request
     log.info("Sending request #2")
-    requests.send_request()
+    requests.send_request(args.platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -84,7 +84,7 @@ def test_count():
 
     # third request
     log.info("Sending request #3")
-    requests.send_request()
+    requests.send_request(args.platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -95,7 +95,7 @@ def test_count():
     return util.EXIT_SUCCESS
 
 
-def test_return_height():
+def test_return_height(args):
     # generate the filter code
     result = generate_filter("return_height.cql", [])
     assert result == util.EXIT_SUCCESS
@@ -105,7 +105,7 @@ def test_return_height():
 
     # first request
     log.info("Sending request #1")
-    requests.send_request()
+    requests.send_request(args.platform)
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -117,8 +117,8 @@ def test_return_height():
 
 
 def main(args):
-    # test_count()
-    test_return_height()
+    test_count(args)
+    test_return_height(args)
 
 
 if __name__ == '__main__':
@@ -135,6 +135,13 @@ if __name__ == '__main__':
         default="INFO",
         choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
         help="The log level to choose.")
+    parser.add_argument("-p",
+                        "--platform",
+                        dest="platform",
+                        default="KB",
+                        choices=["MK", "GCP"],
+                        help="Which platform to run the scripts on."
+                        "MK is minikube, GCP is Google Cloud Compute")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
