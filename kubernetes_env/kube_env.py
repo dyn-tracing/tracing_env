@@ -99,6 +99,7 @@ def deploy_bookinfo():
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     bookinfo_wait()
