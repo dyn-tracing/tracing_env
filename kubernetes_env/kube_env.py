@@ -19,8 +19,8 @@ ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
-FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/cpp_filter")
-CM_FILTER_NAME = "cpp-filter"
+FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/rs_filter")
+CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
 # from kubernetes import client
@@ -292,7 +292,7 @@ def update_conf_map(filter_dir):
         result = patch_bookinfo()
     # "refresh" it by recreating the config map
     cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-    cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+    cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to create config map.")
@@ -308,7 +308,7 @@ def deploy_filter(filter_dir):
     if result != util.EXIT_SUCCESS:
         # create the config map with the filter
         cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-        cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+        cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
         result = util.exec_process(cmd)
         if result != util.EXIT_SUCCESS:
             log.error("Failed to create config map.")
