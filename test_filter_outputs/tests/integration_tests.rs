@@ -9,6 +9,7 @@ mod tests {
     use std::path::Path;
     use std::process::Command;
     use test_case::test_case;
+    use rpc_lib::rpc::Rpc;
     const ROOT_NAME: &str = "productpage-v1";
     const STORAGE_NAME: &str = "storage";
 
@@ -72,45 +73,20 @@ mod tests {
         assert!(output.status.success());
     }
 
-    // Count is weird - if you make the nodes have the same names, as makes sense to me, then it doesn't work with c++
-    // but I'm not sure what exactly the query is saying if they have different names - so we'll leave it for now until
-    // we get language semantics ironed out
     #[test_case(
-        "breadth_histogram",
-        "breadth_histogram.cql",
-        vec!["histogram.rs"],
-        "Hist:  (1, 1) \n\nHist:  (1, 2) \n\nHist:  (1, 3) \n\nHist:  (1, 4) \n\nHist:  (1, 5) \n\nHist:  (1, 6) \n\nHist:  (1, 7) \n\nHist:  (1, 8) \n\n" ; "breadth_histogram_test"
-    )]
-    #[test_case(
-        "height_histogram",
-        "height_histogram.cql",
-        vec!["histogram.rs"],
-        "Hist:  (2, 1) \n\nHist:  (2, 2) \n\nHist:  (2, 3) \n\nHist:  (2, 4) \n\nHist:  (2, 5) \n\nHist:  (2, 6) \n\nHist:  (2, 7) \n\nHist:  (2, 8) \n\n" ; "height_histogram_test"
-    )]
-    #[test_case(
-        "response_code_count",
-        "response_code_count.cql",
-        vec!["count.rs"],
-        "1\n2\n3\n4\n5\n6\n7\n8\n" ; "response_code_count_test"
-    )]
-    #[test_case(
-        "response_size_avg",
-        "response_size_avg.cql",
-        vec!["avg.rs"],
-        "1\n1\n1\n1\n1\n1\n1\n1\n" ; "response_size_avg_test"
-    )]
-    #[test_case(
-        "return_test",
-        "return.cql",
+        "service_name",
+        "get_service_name.cql",
         vec![],
-        "1\n1\n1\n1\n1\n1\n1\n1\n" ; "return_test"
+        "productpage-v1\n" ; "service_name_test"
     )]
+
     #[test_case(
-        "return_height",
-        "return_height.cql",
-        vec![],
-        "2\n2\n2\n2\n2\n2\n2\n2\n" ; "return_height_test"
+        "height",
+        "height.cql",
+        vec!["height.rs"],
+        "2\n" ; "height_test"
     )]
+
     fn test(query_id: &str, query_name: &str, udfs: Vec<&str>, expected_output: &str) {
         // 1.Create the necessary directories
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -144,7 +120,8 @@ mod tests {
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
         // 4. Create the simulator and test the output
         let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(0, filter_plugin.to_str());
-        for tick in 0..10 {
+        bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
+        for tick in 0..7 {
             bookinfo_sim.tick(tick);
         }
         assert_eq!(expected_output, bookinfo_sim.query_storage(STORAGE_NAME));

@@ -8,4 +8,5 @@ edition = "2018"
 
 [dependencies]
 example_envs = { path = "../tracing_sim/example_envs" }
+rpc_lib = { path = "../tracing_sim/libs/rpc_lib" }
 test-case = "1.1.0"
