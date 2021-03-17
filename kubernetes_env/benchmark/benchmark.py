@@ -9,6 +9,8 @@ import requests
 import time
 import seaborn as sns
 import pandas as pd
+from multiprocessing import Process
+from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 import json
 from pathlib import Path
@@ -24,6 +26,7 @@ FILTER_DIR = FILE_DIR.joinpath("empty_filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
+
 
 def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
@@ -97,7 +100,7 @@ def plot(files):
                  ci=False,
                  marker='o')
     plt.title(title)
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()));
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
     plot_name = "-".join(names) + timestamp
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
@@ -105,27 +108,53 @@ def plot(files):
     return util.EXIT_SUCCESS
 
 
-def run_fortio(platform, threads, qps, run_time, file_name):
+def run_fortio(url, platform, threads, qps, run_time, file_name):
     util.check_dir(DATA_DIR)
-    _, _, gateway_url = kube_env.get_gateway_info(platform)
     output_file = str(DATA_DIR.joinpath(f"{file_name}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} "
     cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -json {output_file} "
-    cmd += f"http://{gateway_url}/productpage"
+    cmd += f"{url}"
     with open(output_file, "w") as f:
         fortio_res = util.exec_process(cmd,
                                        stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE)
         return fortio_res
 
+def burst_loop(url, threads, qps, run_time):
+    def send_request(_):
+        try:
+            start = round(time.time() * 1000)
+            requests.get(url, timeout=0.5) 
+            end = round(time.time() * 1000)
+            return end - start
+        except requests.exceptions.ReadTimeout:
+            pass
+
+    log.info("Starting burst...")
+    
+    with ThreadPoolExecutor(max_workers=threads) as p:
+        results = p.map(send_request, range(qps * run_time))
+        for res in results:
+          print(f"{res} ms")
+    log.info("Done with burst...")
+
+
+def do_burst(url, platform, threads, qps, run_time):
+    _, _, gateway_url = kube_env.get_gateway_info(platform)
+    log.info(f"gateway url: {url}")
+    p = Process(target=burst_loop, args=(url, threads, qps, run_time, ))
+    p.start()
 
 def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
-
+    
+    _, _, gateway_url = kube_env.get_gateway_info(platform)
+    product_url = f"http://{gateway_url}/productpage"
+    """
     for f in DATA_DIR.glob("*"):
         if f.is_file():
             f.unlink()
@@ -146,20 +175,20 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
         log.info("Running fortio...")
         # Might break for filter_dir/
         fname = fd.split("/")[-1]
-
         # warm up with 100qps for 10s
-        warmup_res = run_fortio(platform, threads, 100, 10, fname)
+        warmup_res = run_fortio(product_url, platform, threads, 100, 10, fname)
         if warmup_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
-        fortio_res = run_fortio(platform, threads, qps, time, fname)
+        fortio_res = run_fortio(product_url, platform, threads, qps, time, fname)
         if fortio_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
 
     dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
     return plot(dataf)
-
+    """
+    do_burst(product_url, platform, threads, qps, time)
 
 def main(args):
     filter_dirs = args.filter_dirs
