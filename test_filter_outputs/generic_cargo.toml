@@ -17,3 +17,4 @@ path = "filter.rs"
 petgraph = { path = "../../../tracing_sim/libs/petgraph" }
 rpc_lib = { path = "../../../tracing_sim/libs/rpc_lib" }
 graph_utils = { path = "../../../tracing_sim/libs/graph_utils" }
+indexmap = { version = "1.6.1", features = ["serde-1"] }
