@@ -20,7 +20,7 @@ import kube_util as util
 
 log = logging.getLogger(__name__)
 FILE_DIR = DIRS[0]
-FILTER_DIR = FILE_DIR.joinpath("cpp_filter")
+FILTER_DIR = FILE_DIR.joinpath("empty_filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
@@ -61,11 +61,16 @@ def plot(files):
         names.append(f.name.replace(".json", ""))
         with f.open() as jsonf:
             json_data.append(json.load(jsonf))
+    if not json_data:
+      log.error("No json data available")
+      return util.EXIT_FAILURE
     converted_durations = [
         convert_data(data["DurationHistogram"]) for data in json_data
     ]
     dfs = []
-    title = ""
+    qps = json_data[0]["RequestedQPS"]
+    duration = json_data[0]["RequestedDuration"]
+    title = f"QPS: {qps}. Duration: ${duration}. "
     for (idx, converted_duration) in enumerate(converted_durations):
         res_times = [0]
         percentiles = [0]
@@ -128,22 +133,28 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
         build_res = kube_env.build_filter(fd)
 
         if build_res != util.EXIT_SUCCESS:
-            log.error(f"Building filter failed for {filter_dir}."
+            log.error(f"Building filter failed for {fd}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
         filter_res = kube_env.refresh_filter(fd)
         if filter_res != util.EXIT_SUCCESS:
-            log.error(f"Deploying filter failed for {filter_dir}."
+            log.error(f"Deploying filter failed for {fd}."
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
         log.info("Running fortio...")
         # Might break for filter_dir/
         fname = fd.split("/")[-1]
+
+        # warm up with 100qps for 10s
+        warmup_res = run_fortio(platform, threads, 100, 10, fname)
+        if warmup_res != util.EXIT_SUCCESS:
+            log.error(f"Error benchmarking for {fd}")
+            return util.EXIT_FAILURE
         fortio_res = run_fortio(platform, threads, qps, time, fname)
         if fortio_res != util.EXIT_SUCCESS:
-            log.error(f"Error benchmarking for {filter_dir}")
+            log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
 
     dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
