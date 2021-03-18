@@ -247,7 +247,8 @@ def setup_bookinfo_deployment(platform, multizonal):
 def build_filter(filter_dir):
     # Bazel is obnoxious, need to explicitly change dirs
     log.info("Building filter...")
-    cmd = f"cd {filter_dir}; bazel build //:filter.wasm"
+    cmd = f"cd {filter_dir}; "
+    cmd += "cargo +nightly build --target=wasm32-unknown-unknown --release "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -309,7 +310,8 @@ def deploy_filter(filter_dir):
     if result != util.EXIT_SUCCESS:
         # create the config map with the filter
         cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-        cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
+        cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/"
+        cmd += "filter.wasm "
         result = util.exec_process(cmd)
         if result != util.EXIT_SUCCESS:
             log.error("Failed to create config map.")

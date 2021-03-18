@@ -26,11 +26,6 @@ sudo install minikube-darwin-amd64 /usr/local/bin/minikube
 rm -rf minikube-darwin-amd64
 # Need to use docker because we are in a VM
 minikube config set driver hyperkit
-# Bazel
-/bin/bash -c "$(curl -fsSL \
-https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
-brew install bazel
-brew upgrade bazel
 
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 # Docker
@@ -49,12 +44,6 @@ sudo dpkg -i minikube_latest_amd64.deb
 rm minikube_latest_amd64.deb
 # Need to use docker because we are in a VM
 minikube config set driver docker
-# Bazel
-sudo apt install -y curl gnupg
-curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
-sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
-echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-sudo apt update && sudo apt install bazel
 
 fi
 
