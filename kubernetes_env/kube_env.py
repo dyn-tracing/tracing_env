@@ -14,13 +14,13 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.0")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.1")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
-FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/cpp_filter")
-CM_FILTER_NAME = "cpp-filter"
+FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/rs_filter")
+CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
 # from kubernetes import client
@@ -99,6 +99,7 @@ def deploy_bookinfo():
     cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
     cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     bookinfo_wait()
@@ -246,7 +247,8 @@ def setup_bookinfo_deployment(platform, multizonal):
 def build_filter(filter_dir):
     # Bazel is obnoxious, need to explicitly change dirs
     log.info("Building filter...")
-    cmd = f"cd {filter_dir}; bazel build //:filter.wasm"
+    cmd = f"cd {filter_dir}; "
+    cmd += "cargo +nightly build --target=wasm32-unknown-unknown --release "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -268,10 +270,17 @@ def undeploy_filter():
     return deploy_bookinfo()
 
 
-def install_modded_bookinfo():
-    cmd = f"kubectl replace -f {YAML_DIR}/bookinfo-filter-apps.yaml "
-    result = util.exec_process(cmd)
-    return result
+def patch_bookinfo():
+    cmd = "kubectl get deploy -o name"
+    deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
+    deployments = deployments.split("\n")
+    for depl in deployments:
+        patch_cmd = f"kubectl patch {depl} "
+        patch_cmd += f"--patch-file {YAML_DIR}/cm_patch.yaml "
+        result = util.exec_process(patch_cmd)
+        if result != util.EXIT_SUCCESS:
+            log.error("Failed to patch %s.", depl)
+    return util.EXIT_SUCCESS
 
 
 def update_conf_map(filter_dir):
@@ -280,13 +289,17 @@ def update_conf_map(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map.")
+        log.warning("Assuming a patch is required.")
+        # update the containers with the config map
+        result = patch_bookinfo()
     # "refresh" it by recreating the config map
     cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-    cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+    cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to create config map.")
     return result
+
 
 def deploy_filter(filter_dir):
     # check if the config map already exists
@@ -297,7 +310,8 @@ def deploy_filter(filter_dir):
     if result != util.EXIT_SUCCESS:
         # create the config map with the filter
         cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-        cmd += f"{filter_dir}/bazel-bin/filter.wasm "
+        cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/"
+        cmd += "filter.wasm "
         result = util.exec_process(cmd)
         if result != util.EXIT_SUCCESS:
             log.error("Failed to create config map.")
@@ -308,7 +322,9 @@ def deploy_filter(filter_dir):
         # delete and recreate the config map
         update_conf_map(filter_dir)
     # update the containers with the config map
-    result = install_modded_bookinfo()
+    result = patch_bookinfo()
+    if result != util.EXIT_SUCCESS:
+        return result
     result = bookinfo_wait()
     if result != util.EXIT_SUCCESS:
         return result
@@ -322,6 +338,12 @@ def refresh_filter(filter_dir):
 
     # delete and recreate the config map
     update_conf_map(filter_dir)
+
+    # activate the filter
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
     # this is equivalent to a deployment restart right now
     cmd = "kubectl rollout restart  deployments --namespace=default"
     result = util.exec_process(cmd)

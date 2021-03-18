@@ -26,9 +26,11 @@ def kill_storage_mon(storage_proc):
     os.killpg(os.getpgid(storage_proc.pid), signal.SIGINT)
 
 
-def main(_):
+def main(args):
     storage_proc = init_storage_mon()
-    log.info("Storage content:\n%s", query_storage().text)
+    ret = query_storage(args.cmd)
+    if args.cmd == "list":
+        log.info("Storage content:\n%s", ret.text)
     # kill the storage proc after the query
     kill_storage_mon(storage_proc)
 
@@ -54,7 +56,12 @@ if __name__ == '__main__':
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."
                         "MK is minikube, GCP is Google Cloud Compute")
-
+    parser.add_argument("-c",
+                        "--cmd",
+                        dest="cmd",
+                        default="list",
+                        choices=["clean", "list"],
+                        help="The command to send to storage.")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
