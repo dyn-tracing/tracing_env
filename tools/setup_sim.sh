@@ -13,6 +13,8 @@ set PATH $HOME/.cargo/bin $PATH
 rustup toolchain install nightly
 # we need to use nightly as default
 rustup default nightly
+# install the wasm back end
+rustup target add wasm32-unknown-unknown --toolchain nightly
 
 # Now start building the compiler
 cargo build --manifest-path ${COMPILER_DIR}/Cargo.toml
