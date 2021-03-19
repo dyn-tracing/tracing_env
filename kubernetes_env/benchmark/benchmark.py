@@ -22,7 +22,7 @@ import kube_util as util
 
 log = logging.getLogger(__name__)
 FILE_DIR = DIRS[0]
-FILTER_DIR = FILE_DIR.joinpath("empty_filter")
+FILTER_DIR = FILE_DIR.joinpath("rs-empty-filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
@@ -132,12 +132,12 @@ def burst_loop(url, threads, qps, run_time):
             pass
 
     log.info("Starting burst...")
-    
+
+    results = None
     with ThreadPoolExecutor(max_workers=threads) as p:
         results = p.map(send_request, range(qps * run_time))
-        for res in results:
-          print(f"{res} ms")
     log.info("Done with burst...")
+    return results
 
 
 def do_burst(url, platform, threads, qps, run_time):
@@ -154,10 +154,11 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
     
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     product_url = f"http://{gateway_url}/productpage"
-    """
+    
     for f in DATA_DIR.glob("*"):
         if f.is_file():
             f.unlink()
+
     for (idx, fd) in enumerate(filter_dirs):
         build_res = kube_env.build_filter(fd)
 
@@ -180,15 +181,18 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
         if warmup_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
-        fortio_res = run_fortio(product_url, platform, threads, qps, time, fname)
-        if fortio_res != util.EXIT_SUCCESS:
-            log.error(f"Error benchmarking for {fd}")
-            return util.EXIT_FAILURE
+        if fortio:
+          fortio_res = run_fortio(product_url, platform, threads, qps, time, fname)
+          if fortio_res != util.EXIT_SUCCESS:
+              log.error(f"Error benchmarking for {fd}")
+              return util.EXIT_FAILURE
+        else:      
+          results = do_burst(product_url, platform, threads, qps, time)
+          for t in results:
+            print(f"{t} ms")
+    # dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
+    # return plot(dataf)
 
-    dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
-    return plot(dataf)
-    """
-    do_burst(product_url, platform, threads, qps, time)
 
 def main(args):
     filter_dirs = args.filter_dirs
@@ -256,6 +260,7 @@ if __name__ == '__main__':
                         "--fortio",
                         dest="fortio",
                         type=bool,
+                        default=True,
                         help="Running fortio or not")
     # Parse options and process argv
     arguments = parser.parse_args()
