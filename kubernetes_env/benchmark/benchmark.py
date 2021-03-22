@@ -190,8 +190,8 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
           results = do_burst(product_url, platform, threads, qps, time)
           for t in results:
             print(f"{t} ms")
-    # dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
-    # return plot(dataf)
+    dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
+    return plot(dataf)
 
 
 def main(args):
