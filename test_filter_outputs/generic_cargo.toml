@@ -14,7 +14,10 @@ crate-type = ["dylib"]
 path = "filter.rs"
 
 [dependencies]
-petgraph = { path = "../../../tracing_sim/libs/petgraph" }
+petgraph = { path = "../../../tracing_sim/libs/petgraph" , features = ["serde-1"] }
 rpc_lib = { path = "../../../tracing_sim/libs/rpc_lib" }
 graph_utils = { path = "../../../tracing_sim/libs/graph_utils" }
+serde = { version = "1.0", features = ["derive"] }
 indexmap = { version = "1.6.1", features = ["serde-1"] }
+serde_json = "1.0"
+log = "*"
