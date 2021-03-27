@@ -9,7 +9,7 @@ import requests
 import time
 import seaborn as sns
 import pandas as pd
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 import json
@@ -54,58 +54,115 @@ def convert_data(data):
         } for datum in data["Data"]]
     }
 
+def transform_data(raw_data):
+    log.info("Transforming load data....")
+    filtered_data = [datum for datum in raw_data if datum is not None]
+    filtered_data.sort()
+    min_val = min(filtered_data)
+    max_val = max(filtered_data)
+    diff = (max_val - min_val) // 10
+    buckets = []
+    for i in range(min_val, max_val, diff):
+        buckets.append({
+          "start": i,
+          "end": i + diff if i + diff < max_val else max_val,
+          "count": 0
+        })
 
-def plot(files):
-    fs = []
-    log.info("Plotting...")
-    names = []
-    json_data = []
-    for f in files:
-        names.append(f.name.replace(".json", ""))
-        with f.open() as jsonf:
-            json_data.append(json.load(jsonf))
-    if not json_data:
-      log.error("No json data available")
-      return util.EXIT_FAILURE
-    converted_durations = [
-        convert_data(data["DurationHistogram"]) for data in json_data
-    ]
-    dfs = []
-    qps = json_data[0]["RequestedQPS"]
-    duration = json_data[0]["RequestedDuration"]
-    title = f"QPS: {qps}. Duration: ${duration}. "
-    for (idx, converted_duration) in enumerate(converted_durations):
-        res_times = [0]
-        percentiles = [0]
-        avg = converted_duration["Avg"]
-        title += f"{names[idx]} Avg: {avg} ms. "
-        for datum in converted_duration["Data"]:
-            res_times.append(datum["Start"])
-            res_times.append(datum["End"])
-            percentiles.append(float(datum["Percent"]))
-            percentiles.append(float(datum["Percent"]))
-            d = {
-                "Response time (ms)": res_times,
-                "Percentiles": percentiles,
-                "Filter": names[idx]
-            }
-            df = pd.DataFrame(data=d)
-            dfs.append(df)
-    final_df = pd.concat(dfs)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    sns.lineplot(data=final_df,
-                 x="Response time (ms)",
-                 y="Percentiles",
-                 hue="Filter",
-                 ci=False,
-                 marker='o')
-    plt.title(title)
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
-    plot_name = "-".join(names) + timestamp
-    util.check_dir(GRAPHS_DIR)
-    plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
-    log.info("Finished plotting. Check out the graphs directory!")
-    return util.EXIT_SUCCESS
+    for (idx, ts) in enumerate(filtered_data):
+      for bucket in buckets:
+        if ts == bucket["end"]:
+          bucket["percent"] = (idx / len(filtered_data)) * 100
+        if bucket["start"] <= ts and ts < bucket["end"]:
+          bucket["count"] += 1
+    bucket_with_percent = [bucket for bucket in buckets if "percent" in bucket]
+    return bucket_with_percent
+
+def plot(results, filters=[], fortio=True):
+    if fortio is True:
+      fs = []
+      log.info("Plotting...")
+      names = []
+      json_data = []
+      for f in files:
+          names.append(f.name.replace(".json", ""))
+          with f.open() as jsonf:
+              json_data.append(json.load(jsonf))
+      if not json_data:
+        log.error("No json data available")
+        return util.EXIT_FAILURE
+      converted_durations = [
+          convert_data(data["DurationHistogram"]) for data in json_data
+      ]
+      dfs = []
+      qps = json_data[0]["RequestedQPS"]
+      duration = json_data[0]["RequestedDuration"]
+      title = f"QPS: {qps}. Duration: ${duration}. "
+      for (idx, converted_duration) in enumerate(converted_durations):
+          res_times = [0]
+          percentiles = [0]
+          avg = converted_duration["Avg"]
+          title += f"{names[idx]} Avg: {avg} ms. "
+          for datum in converted_duration["Data"]:
+              res_times.append(datum["Start"])
+              res_times.append(datum["End"])
+              percentiles.append(float(datum["Percent"]))
+              percentiles.append(float(datum["Percent"]))
+              d = {
+                  "Response time (ms)": res_times,
+                  "Percentiles": percentiles,
+                  "Filter": names[idx]
+              }
+              df = pd.DataFrame(data=d)
+              dfs.append(df)
+      final_df = pd.concat(dfs)
+      fig, ax = plt.subplots(figsize=(12, 6))
+      sns.lineplot(data=final_df,
+                   x="Response time (ms)",
+                   y="Percentiles",
+                   hue="Filter",
+                   ci=False,
+                   marker='o')
+      plt.title(title)
+      timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
+      plot_name = "-".join(names) + timestamp
+      util.check_dir(GRAPHS_DIR)
+      plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
+      log.info("Finished plotting. Check out the graphs directory!")
+      return util.EXIT_SUCCESS
+    else:
+      results = results[0]
+      timestamps_with_percent = [bucket for bucket in results if "percent" in bucket]
+      res_times = []
+      percentiles = []
+      dfs = []
+      for bucket in results:
+        res_times.append(bucket["start"])
+        res_times.append(bucket["end"])
+        percentiles.append(bucket["percent"])
+        percentiles.append(bucket["percent"])
+        d = {
+          "Response time (ms)": res_times,
+          "Percentiles": percentiles
+          # "Filter": names[idx]
+        }
+        df = pd.DataFrame(data=d)
+        dfs.append(df)
+      final_df = pd.concat(dfs)
+      fig, ax = plt.subplots(figsize=(12, 6))
+      sns.lineplot(data=final_df,
+                   x="Response time (ms)",
+                   y="Percentiles",
+                   #hue="Filter",
+                   ci=False,
+                   marker='o')
+      # plt.title(title)
+      timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
+      plot_name =  f"loadgen {timestamp}"
+      util.check_dir(GRAPHS_DIR)
+      plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
+      log.info("Finished plotting. Check out the graphs directory!")
+      return util.EXIT_SUCCESS
 
 
 def run_fortio(url, platform, threads, qps, run_time, file_name):
@@ -121,7 +178,7 @@ def run_fortio(url, platform, threads, qps, run_time, file_name):
                                        stderr=subprocess.PIPE)
         return fortio_res
 
-def burst_loop(url, threads, qps, run_time):
+def burst_loop(url, threads, qps, run_time, queue):
     def send_request(_):
         try:
             start = round(time.time() * 1000)
@@ -133,18 +190,19 @@ def burst_loop(url, threads, qps, run_time):
 
     log.info("Starting burst...")
 
-    results = None
     with ThreadPoolExecutor(max_workers=threads) as p:
-        results = p.map(send_request, range(qps * run_time))
-    log.info("Done with burst...")
-    return results
+        results = list(p.map(send_request, range(qps * run_time)))
+        queue.put(results)    
 
 
 def do_burst(url, platform, threads, qps, run_time):
+    queue = Queue()
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     log.info(f"gateway url: {url}")
-    p = Process(target=burst_loop, args=(url, threads, qps, run_time, ))
+    p = Process(target=burst_loop, args=(url, threads, qps, run_time, queue, ))
     p.start()
+    p.join()
+    return queue.get()
 
 def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
@@ -154,7 +212,8 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
     
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     product_url = f"http://{gateway_url}/productpage"
-    
+    results = []
+    filters = []
     for f in DATA_DIR.glob("*"):
         if f.is_file():
             f.unlink()
@@ -173,26 +232,32 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        log.info("Running fortio...")
         # Might break for filter_dir/
         fname = fd.split("/")[-1]
+        filters.append(fname)
         # warm up with 100qps for 10s
         warmup_res = run_fortio(product_url, platform, threads, 100, 10, fname)
         if warmup_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
-        if fortio:
+        if fortio is True:
+          log.info("Running fortio...")
           fortio_res = run_fortio(product_url, platform, threads, qps, time, fname)
           if fortio_res != util.EXIT_SUCCESS:
               log.error(f"Error benchmarking for {fd}")
               return util.EXIT_FAILURE
-        else:      
-          results = do_burst(product_url, platform, threads, qps, time)
-          for t in results:
-            print(f"{t} ms")
-    dataf = [f for f in DATA_DIR.glob("*") if f.is_file()]
-    return plot(dataf)
+        else:
+          log.info("Generating load...")
+          burst_res = do_burst(product_url, platform, threads, qps, time)
+          results.append(burst_res)
 
+    if fortio is True:
+      fortio_res = [f for f in DATA_DIR.glob("*") if f.is_file()]
+      return plot(fortio_res, fortio=True)
+    else:
+      if results:
+        res_with_counts = [transform_data(res) for res in results]
+        plot(res_with_counts, filters=filters, fortio=False)
 
 def main(args):
     filter_dirs = args.filter_dirs
@@ -201,7 +266,6 @@ def main(args):
     platform = args.platform
     time = args.time
     fortio = args.fortio
-
     return start_benchmark(fortio, filter_dirs, platform, threads, qps, time)
 
 
@@ -259,7 +323,6 @@ if __name__ == '__main__':
     parser.add_argument("-fo",
                         "--fortio",
                         dest="fortio",
-                        type=bool,
                         default=True,
                         help="Running fortio or not")
     # Parse options and process argv
