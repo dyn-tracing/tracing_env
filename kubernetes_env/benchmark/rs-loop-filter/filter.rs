@@ -124,7 +124,7 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..10000 {
+       for i in 0..1000 {
           c += a;
           d += b;
           e += a;
@@ -138,7 +138,7 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..10000 {
+       for i in 0..1000 {
           c += a;
           d += b;
           e += a;
@@ -153,7 +153,7 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..10000 {
+       for i in 0..1000 {
           c += a;
           d += b;
           e += a;
@@ -168,7 +168,7 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..10000 {
+       for i in 0..1000 {
           c += a;
           d += b;
           e += a;
