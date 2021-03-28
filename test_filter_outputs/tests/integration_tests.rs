@@ -3,13 +3,13 @@
 
 mod tests {
 
+    use rpc_lib::rpc::Rpc;
     use std::env;
     use std::fs;
     use std::io::{self, Write};
     use std::path::Path;
     use std::process::Command;
     use test_case::test_case;
-    use rpc_lib::rpc::Rpc;
     const ROOT_NAME: &str = "productpage-v1";
     const STORAGE_NAME: &str = "storage";
 
@@ -77,21 +77,43 @@ mod tests {
         "service_name",
         "get_service_name.cql",
         vec![],
-        "productpage-v1\n" ; "service_name_test"
+        "productpage-v1\n" ,
+        None ; "service_name_test"
     )]
-
     #[test_case(
         "height",
         "height.cql",
         vec!["height.rs"],
-        "2\n" ; "height_test"
+        "2\n", 
+        None ; "height_test"
+    )]
+    #[test_case(
+        "request_size_avg",
+        "request_size_avg.cql",
+        vec![],
+        "1",
+        Some("../tracing_sim/target/debug/libaggregation_example") ; "request_size_avg_test"
+    )]
+    #[test_case(
+        "request_size_avg_trace_attr",
+        "request_size_avg_trace_attr.cql",
+        vec![],
+        "1",
+        Some("../tracing_sim/target/debug/libaggregation_example") ; "request_size_avg_trace_attr_test"
     )]
 
-    fn test(query_id: &str, query_name: &str, udfs: Vec<&str>, expected_output: &str) {
+    fn test(
+        query_id: &str,
+        query_name: &str,
+        udfs: Vec<&str>,
+        expected_output: &str,
+        aggregation_id: Option<&str>,
+    ) {
         // 1.Create the necessary directories
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let filter_test_dir = file_dir.join("filters").join(query_id);
         let compiler_dir = file_dir.join("../tracing_compiler");
+        let simulator_dir = file_dir.join("../tracing_sim");
         let generic_cargo = file_dir.join("generic_cargo.toml");
         let dst_cargo = filter_test_dir.join("Cargo.toml");
 
@@ -118,8 +140,10 @@ mod tests {
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
+
         // 4. Create the simulator and test the output
-        let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(0, filter_plugin.to_str());
+        let mut bookinfo_sim =
+            example_envs::bookinfo::new_bookinfo(0, filter_plugin.to_str(), aggregation_id);
         bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
         for tick in 0..7 {
             bookinfo_sim.tick(tick);
