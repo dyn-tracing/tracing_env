@@ -189,7 +189,7 @@ def do_burst(url, platform, threads, qps, run_time):
     return queue.get()
 
 
-def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
+def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
@@ -225,7 +225,7 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
         if warmup_res != util.EXIT_SUCCESS:
             log.error(f"Error benchmarking for {fd}")
             return util.EXIT_FAILURE
-        if fortio is True:
+        if custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(product_url, platform, threads, qps, time,
                                     fname)
@@ -237,7 +237,7 @@ def start_benchmark(fortio, filter_dirs, platform, threads, qps, time):
             burst_res = do_burst(product_url, platform, threads, qps, time)
             results.append(burst_res)
 
-    if fortio is True:
+    if custom == "fortio":
         fortio_data, title = transform_fortio_data(filters)
         return plot(fortio_data, filters, title, fortio=True)
     else:
@@ -251,8 +251,8 @@ def main(args):
     qps = args.qps
     platform = args.platform
     time = args.time
-    fortio = args.fortio
-    return start_benchmark(fortio, filter_dirs, platform, threads, qps, time)
+    custom = args.custom.lower()
+    return start_benchmark(custom, filter_dirs, platform, threads, qps, time)
 
 
 if __name__ == '__main__':
@@ -306,11 +306,11 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help="Time for fortio")
-    parser.add_argument("-fo",
-                        "--fortio",
-                        dest="fortio",
-                        default=True,
-                        help="Running fortio or not")
+    parser.add_argument("-cu",
+                        "--use-custom",
+                        dest="custom",
+                        default="",
+                        help="Running custom load generator.")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
