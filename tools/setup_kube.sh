@@ -32,6 +32,8 @@ elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 sudo apt install -y docker.io
 # Docker without sudo
 sudo usermod -aG docker $USER
+# Login to docker
+newgrp docker
 # Kubectl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
 sudo touch /etc/apt/sources.list.d/kubernetes.list
