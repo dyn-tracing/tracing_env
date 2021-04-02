@@ -80,11 +80,11 @@ mod tests {
     }
 
     #[test_case(
-        "service_name",
+        "service_name_test",
         "get_service_name.cql",
         vec![],
         "productpage-v1\n" ,
-        None, false ; "service_name_test"
+        None, false ; "service_name_centralized_test"
     )]
     #[test_case(
         "service_name_distributed",
@@ -94,11 +94,11 @@ mod tests {
         None, true ; "service_name_distributed_test"
     )]
     #[test_case(
-        "height",
+        "height_centralized_test",
         "height.cql",
         vec!["height.rs"],
         "2\n", 
-        None , false ; "height_test"
+        None , false ; "height_centralized_test"
     )]
     #[test_case(
         "height_distributed",
@@ -108,11 +108,11 @@ mod tests {
         None , true ; "height_distributed_test"
     )]
     #[test_case(
-        "request_size_avg",
+        "request_size_avg_centralized_test",
         "request_size_avg.cql",
         vec![],
         "1",
-        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_test"
+        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_centralized_test"
     )]
     #[test_case(
         "request_size_avg_distributed",
@@ -123,11 +123,11 @@ mod tests {
     )]
 
     #[test_case(
-        "request_size_avg_trace_attr",
+        "request_size_avg_trace_attr_centralized_test",
         "request_size_avg_trace_attr.cql",
         vec![],
         "1",
-        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_trace_attr_test"
+        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_trace_attr_centralized_test"
     )]
     #[test_case(
         "request_size_avg_trace_attr_distributed",

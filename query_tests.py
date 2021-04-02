@@ -13,8 +13,8 @@ import kubernetes_env.query_storage as storage
 FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
-QUERY_DIR = COMPILER_DIR.joinpath("example_queries/old")
-UDF_DIR = COMPILER_DIR.joinpath("example_udfs/old")
+QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
+UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
 log = logging.getLogger(__name__)
 
@@ -58,46 +58,41 @@ def bootstrap():
     return storage_proc
 
 
-def test_count(platform="MK"):
+def test_get_service_name(platform="MK"):
     # generate the filter code
-    result = generate_filter("count.cql", ["count.cc"])
+    result = generate_filter("get_service_name.cql", [])
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
     storage_proc = bootstrap()
 
-    # first request
-    log.info("Sending request #1")
-    requests.send_request(platform)
-    storage_content = storage.query_storage()
-    text = storage_content.text
-    result_set = process_response(text)
-    assert "1" in result_set, "expected 1 received %s" % result_set
+    found_reviews_3 = False
+    request_num = 1;
+    result_set = None
+    while not found_reviews_3:
+        log.info("Sending request %d" % request_num);
+        request_num += 1
+        response = requests.send_request(platform).headers
 
-    # second request
-    log.info("Sending request #2")
-    requests.send_request(platform)
-    storage_content = storage.query_storage()
-    text = storage_content.text
-    result_set = process_response(text)
-    assert "2" in result_set, "expected 2 received %s" % result_set
+        response_fd = response['ferried_data']
 
-    # third request
-    log.info("Sending request #3")
-    requests.send_request(platform)
-    storage_content = storage.query_storage()
-    text = storage_content.text
-    result_set = process_response(text)
-    assert "3" in result_set, "expected 3 received %s" % result_set
+        if "reviews-v3" in response_fd:
+            found_reviews_3 = True
+        storage_content = storage.query_storage()
+        text = storage_content.text
+        result_set = process_response(text)
+        if request_num == 30:
+            found_reviews_3 = True # don't want to loop forever - depend on assertion for correctness
+    assert("productpage-v1" in result_set, "received %s" % result_set)
 
     storage.kill_storage_mon(storage_proc)
-    log.info("count test succeeded.")
+    log.info("get service name test succeeded.")
     return util.EXIT_SUCCESS
 
 
 def test_return_height(platform="MK"):
     # generate the filter code
-    result = generate_filter("return_height.cql", [])
+    result = generate_filter("height.cql", ["height.rs"])
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
@@ -117,8 +112,8 @@ def test_return_height(platform="MK"):
 
 
 def main(args):
-    test_count(args.platform)
-    test_return_height(args.platform)
+    test_get_service_name(args.platform)
+    #test_return_height(args.platform)
 
 
 if __name__ == '__main__':
