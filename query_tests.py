@@ -98,22 +98,34 @@ def test_return_height(platform="MK"):
     # bootstrap the filter
     storage_proc = bootstrap()
 
-    # first request
-    log.info("Sending request #1")
-    requests.send_request(platform)
-    storage_content = storage.query_storage()
-    text = storage_content.text
-    result_set = process_response(text)
+    # send requests
+    found_reviews_1 = False
+    request_num = 1;
+    result_set = None
+    while not found_reviews_1:
+        log.info("Sending request %d" % request_num);
+        request_num += 1
+        response = requests.send_request(platform).headers
+
+        response_fd = response['ferried_data']
+
+        if "reviews-v1" in response_fd:
+            found_reviews_1 = True
+        storage_content = storage.query_storage()
+        text = storage_content.text
+        result_set = process_response(text)
+        if request_num == 30:
+            found_reviews_1 = True # don't want to loop forever - depend on assertion for correctness
+
     assert "2" in result_set, "expected 2 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
-    log.info("return_height test succeeded.")
+    log.info("height test succeeded.")
     return util.EXIT_SUCCESS
-
 
 def main(args):
     test_get_service_name(args.platform)
-    #test_return_height(args.platform)
+    test_return_height(args.platform)
 
 
 if __name__ == '__main__':
