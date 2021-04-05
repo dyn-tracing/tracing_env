@@ -477,4 +477,4 @@ if __name__ == '__main__':
     stderr_log = logging.StreamHandler()
     stderr_log.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
     logging.getLogger().addHandler(stderr_log)
-    main(arguments)
+    sys.exit(main(arguments))

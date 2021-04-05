@@ -34,13 +34,21 @@ class TestClassKubernetes:
         result = kube_env.setup_bookinfo_deployment("MK", False)
         assert result == util.EXIT_SUCCESS
 
-    def test_count(self):
-        result = query_tests.test_count("MK")
+    # def test_count(self):
+    #     result = query_tests.test_count("MK")
+    #     assert result == util.EXIT_SUCCESS
+
+    # def test_return_height(self):
+    #     result = query_tests.test_return_height("MK")
+    #     assert result == util.EXIT_SUCCESS
+
+    def test_get_service_name(self):
+        result = query_tests.test_get_service_name("MK")
         assert result == util.EXIT_SUCCESS
 
-    def test_return_height(self):
-        result = query_tests.test_return_height("MK")
-        assert result == util.EXIT_SUCCESS
+    # def test_request_size(self):
+    #     result = query_tests.test_request_size("MK")
+    #     assert result == util.EXIT_SUCCESS
 
     @classmethod
     def teardown_class(cls):

@@ -130,10 +130,33 @@ def test_get_service_name(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "ratings-v1" in result_set, "expected ratings-v1 received %s" % result_set
+    assert "productpage-v1" in result_set, (
+        "expected productpage-v1 received %s" % result_set)
 
     storage.kill_storage_mon(storage_proc)
     log.info("get_service_name test succeeded.")
+    return util.EXIT_SUCCESS
+
+
+def test_request_size(platform="MK"):
+    # generate the filter code
+    result = generate_filter("request_size.cql", [])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "productpage-v1" in result_set, (
+        "expected productpage-v1 received %s" % result_set)
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("request_size test succeeded.")
     return util.EXIT_SUCCESS
 
 
@@ -141,6 +164,7 @@ def main(args):
     # test_count(args.platform)
     # test_return_height(args.platform)
     test_get_service_name(args.platform)
+    # test_request_size(args.platform)
 
 
 if __name__ == '__main__':
