@@ -13,8 +13,8 @@ import kubernetes_env.query_storage as storage
 FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
-QUERY_DIR = COMPILER_DIR.joinpath("example_queries/old")
-UDF_DIR = COMPILER_DIR.joinpath("example_udfs/old")
+QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
+UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
 log = logging.getLogger(__name__)
 
@@ -116,9 +116,31 @@ def test_return_height(platform="MK"):
     return util.EXIT_SUCCESS
 
 
+def test_get_service_name(platform="MK"):
+    # generate the filter code
+    result = generate_filter("get_service_name.cql", [])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "ratings-v1" in result_set, "expected ratings-v1 received %s" % result_set
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("get_service_name test succeeded.")
+    return util.EXIT_SUCCESS
+
+
 def main(args):
-    test_count(args.platform)
-    test_return_height(args.platform)
+    # test_count(args.platform)
+    # test_return_height(args.platform)
+    test_get_service_name(args.platform)
 
 
 if __name__ == '__main__':
