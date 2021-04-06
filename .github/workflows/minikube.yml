@@ -21,4 +21,4 @@ jobs:
         ./tools/setup_kube.sh
     - name: Test with pytest
       run: |
-        python3 -m pytest -vrf -k "Kubernetes"
+        python3 -m pytest test_env.py -vrf -k "Kubernetes"
