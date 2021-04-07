@@ -72,7 +72,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "1" in result_set, "expected 1 received %s" % result_set
+    assert "1" in result_set, "Expected 1 received %s" % result_set
 
     # second request
     log.info("Sending request #2")
@@ -80,7 +80,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "2" in result_set, "expected 2 received %s" % result_set
+    assert "2" in result_set, "Expected 2 received %s" % result_set
 
     # third request
     log.info("Sending request #3")
@@ -88,7 +88,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "3" in result_set, "expected 3 received %s" % result_set
+    assert "3" in result_set, "Expected 3 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
     log.info("count test succeeded.")
@@ -131,7 +131,7 @@ def test_get_service_name(platform="MK"):
     text = storage_content.text
     result_set = process_response(text)
     assert "productpage-v1" in result_set, (
-        "expected productpage-v1 received %s" % result_set)
+        "Expected productpage-v1 received %s" % result_set)
 
     storage.kill_storage_mon(storage_proc)
     log.info("get_service_name test succeeded.")
@@ -153,7 +153,7 @@ def test_request_size(platform="MK"):
     text = storage_content.text
     result_set = process_response(text)
     assert "productpage-v1" in result_set, (
-        "expected productpage-v1 received %s" % result_set)
+        "Expected productpage-v1 received %s" % result_set)
 
     storage.kill_storage_mon(storage_proc)
     log.info("request_size test succeeded.")
@@ -161,9 +161,13 @@ def test_request_size(platform="MK"):
 
 
 def main(args):
+    # TODO: Commented queries are not working yet
+    # UDF not implemented
     # test_count(args.platform)
+    # Bug in initialization of data
     # test_return_height(args.platform)
     test_get_service_name(args.platform)
+    # Bug in serialization of data
     # test_request_size(args.platform)
 
 

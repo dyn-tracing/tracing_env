@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import kubernetes_env.kube_util as util
 import kubernetes_env.kube_env as kube_env
-from check_filter import check_filter
 import query_tests
 
 # configure logging
@@ -28,7 +27,7 @@ UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 class TestClassKubernetes:
     @classmethod
     def setup_class(cls):
-        """ setup any state specific to the execution of the given class (which
+        """ Setup any state specific to the execution of the given class (which
         usually contains tests).
         """
         result = kube_env.setup_bookinfo_deployment("MK", False)
