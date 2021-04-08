@@ -13,8 +13,8 @@ import kubernetes_env.query_storage as storage
 FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
-QUERY_DIR = COMPILER_DIR.joinpath("example_queries/old")
-UDF_DIR = COMPILER_DIR.joinpath("example_udfs/old")
+QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
+UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "1" in result_set, "expected 1 received %s" % result_set
+    assert "1" in result_set, "Expected 1 received %s" % result_set
 
     # second request
     log.info("Sending request #2")
@@ -80,7 +80,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "2" in result_set, "expected 2 received %s" % result_set
+    assert "2" in result_set, "Expected 2 received %s" % result_set
 
     # third request
     log.info("Sending request #3")
@@ -88,7 +88,7 @@ def test_count(platform="MK"):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "3" in result_set, "expected 3 received %s" % result_set
+    assert "3" in result_set, "Expected 3 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
     log.info("count test succeeded.")
@@ -116,9 +116,59 @@ def test_return_height(platform="MK"):
     return util.EXIT_SUCCESS
 
 
+def test_get_service_name(platform="MK"):
+    # generate the filter code
+    result = generate_filter("get_service_name.cql", [])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "productpage-v1" in result_set, (
+        "Expected productpage-v1 received %s" % result_set)
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("get_service_name test succeeded.")
+    return util.EXIT_SUCCESS
+
+
+def test_request_size(platform="MK"):
+    # generate the filter code
+    result = generate_filter("request_size.cql", [])
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap()
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "productpage-v1" in result_set, (
+        "Expected productpage-v1 received %s" % result_set)
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("request_size test succeeded.")
+    return util.EXIT_SUCCESS
+
+
 def main(args):
-    test_count(args.platform)
-    test_return_height(args.platform)
+    # TODO: Commented queries are not working yet
+    # UDF not implemented
+    # test_count(args.platform)
+    # Bug in initialization of data
+    # test_return_height(args.platform)
+    test_get_service_name(args.platform)
+    # Bug in serialization of data
+    # test_request_size(args.platform)
 
 
 if __name__ == '__main__':

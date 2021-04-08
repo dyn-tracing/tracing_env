@@ -97,14 +97,14 @@ mod tests {
         "height",
         "height.cql",
         vec!["height.rs"],
-        "2\n", 
+        "2\n",
         None , false ; "height_test"
     )]
     #[test_case(
         "height_distributed",
         "height.cql",
         vec!["height.rs"],
-        "2\n", 
+        "2\n",
         None , true ; "height_distributed_test"
     )]
     #[test_case(
@@ -149,7 +149,6 @@ mod tests {
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let filter_test_dir = file_dir.join("filters").join(query_id);
         let compiler_dir = file_dir.join("../tracing_compiler");
-        let simulator_dir = file_dir.join("../tracing_sim");
         let generic_cargo = file_dir.join("generic_cargo.toml");
         let dst_cargo = filter_test_dir.join("Cargo.toml");
 
@@ -190,8 +189,8 @@ mod tests {
         // 5. clean up the temporary filter directory
         match fs::remove_dir_all(filter_test_dir) {
             Ok(_) => {}
-            Err(_) => {
-                panic!("Error deleting the filter directory.\n")
+            Err(e) => {
+                println!("Error deleting the filter directory: {:?}\n", e)
             }
         };
     }
