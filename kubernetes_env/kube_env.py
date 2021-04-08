@@ -53,7 +53,7 @@ def deploy_addons():
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
     # cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    # cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
+    cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
@@ -136,11 +136,12 @@ def check_kubernetes_status():
                                stderr=util.subprocess.PIPE)
     return result
 
+
 def check_namespace(namespace):
     cmd = f"kubectl get namespaces | grep {namespace}"
     result = util.exec_process(cmd,
-                            stdout=util.subprocess.PIPE,
-                            stderr=util.subprocess.PIPE)
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
     return result
 
 
@@ -391,7 +392,8 @@ def handle_filter(args):
 def main(args):
     # single commands to execute
     if args.setup:
-        return setup_bookinfo_deployment(args.platform, args.multizonal, args.addons)
+        return setup_bookinfo_deployment(args.platform, args.multizonal,
+                                         args.addons)
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:
