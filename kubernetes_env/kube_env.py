@@ -53,7 +53,7 @@ def deploy_addons():
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.8"
     # cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
+    # cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
@@ -148,7 +148,7 @@ def start_kubernetes(platform, multizonal):
         else:
             cmd += "--zone=us-central1-a "
     else:
-        cmd = "minikube start --memory=4096 --cpus=2 "
+        cmd = "minikube start --memory=7168 --cpus=2 "
     result = util.exec_process(cmd)
     return result
 
@@ -259,11 +259,15 @@ def build_filter(filter_dir):
 def undeploy_filter():
     # delete the config map
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd)
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map.")
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
-    result = util.exec_process(cmd)
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the filter.")
     # restore the original bookinfo
@@ -286,9 +290,11 @@ def patch_bookinfo():
 def update_conf_map(filter_dir):
     # delete the config map
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd)
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
     if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map.")
+        log.warning("Failed to delete the config map, it does not exist.")
         log.warning("Assuming a patch is required.")
         # update the containers with the config map
         result = patch_bookinfo()
