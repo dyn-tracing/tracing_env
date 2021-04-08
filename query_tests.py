@@ -12,7 +12,7 @@ import kubernetes_env.query_storage as storage
 # some folder definitions
 FILE_DIR = Path.resolve(Path(__file__)).parent
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
-COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
+COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/snicket")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 
@@ -49,8 +49,8 @@ def bootstrap():
     log.info("Refresh the filter")
     result = kube_env.refresh_filter(kube_env.FILTER_DIR)
     # sleep a little, so things initialize better
-    log.info("Sleeping for 10 seconds")
-    time.sleep(20)
+    log.info("Sleeping for 60 seconds")
+    time.sleep(60)
     # first, clean the storage
     log.info("Cleaning storage")
     storage_proc = storage.init_storage_mon()
@@ -95,9 +95,9 @@ def test_count(platform="MK"):
     return util.EXIT_SUCCESS
 
 
-def test_return_height(platform="MK"):
+def test_height(platform="MK"):
     # generate the filter code
-    result = generate_filter("return_height.cql", [])
+    result = generate_filter("height.cql", ["height.rs"])
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
@@ -112,7 +112,7 @@ def test_return_height(platform="MK"):
     assert "2" in result_set, "expected 2 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
-    log.info("return_height test succeeded.")
+    log.info("height test succeeded.")
     return util.EXIT_SUCCESS
 
 
@@ -164,9 +164,8 @@ def main(args):
     # TODO: Commented queries are not working yet
     # UDF not implemented
     # test_count(args.platform)
-    # Bug in initialization of data
-    # test_return_height(args.platform)
     test_get_service_name(args.platform)
+    test_height(args.platform)
     # Bug in serialization of data
     # test_request_size(args.platform)
 

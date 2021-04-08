@@ -18,11 +18,6 @@ logging.getLogger().addHandler(stderr_log)
 
 # some folder definitions
 FILE_DIR = Path.resolve(Path(__file__)).parent
-COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
-COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/dtc")
-QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
-UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
-
 
 class TestClassKubernetes:
     @classmethod
