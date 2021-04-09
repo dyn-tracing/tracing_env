@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import kubernetes_env.kube_util as util
 import kubernetes_env.kube_env as kube_env
-from check_filter import check_filter
 import query_tests
 
 # configure logging
@@ -28,19 +27,27 @@ UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
 class TestClassKubernetes:
     @classmethod
     def setup_class(cls):
-        """ setup any state specific to the execution of the given class (which
+        """ Setup any state specific to the execution of the given class (which
         usually contains tests).
         """
         result = kube_env.setup_bookinfo_deployment("MK", False)
         assert result == util.EXIT_SUCCESS
 
-    def test_count(self):
-        result = query_tests.test_count("MK")
+    # def test_count(self):
+    #     result = query_tests.test_count("MK")
+    #     assert result == util.EXIT_SUCCESS
+
+    # def test_return_height(self):
+    #     result = query_tests.test_return_height("MK")
+    #     assert result == util.EXIT_SUCCESS
+
+    def test_get_service_name(self):
+        result = query_tests.test_get_service_name("MK")
         assert result == util.EXIT_SUCCESS
 
-    def test_return_height(self):
-        result = query_tests.test_return_height("MK")
-        assert result == util.EXIT_SUCCESS
+    # def test_request_size(self):
+    #     result = query_tests.test_request_size("MK")
+    #     assert result == util.EXIT_SUCCESS
 
     @classmethod
     def teardown_class(cls):

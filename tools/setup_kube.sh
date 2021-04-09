@@ -26,7 +26,6 @@ sudo install minikube-darwin-amd64 /usr/local/bin/minikube
 rm -rf minikube-darwin-amd64
 # Need to use docker because we are in a VM
 minikube config set driver hyperkit
-
 elif [ "$(expr substr $(uname -s) 1 5)" == "Linux" ]; then
 # Docker
 sudo apt install -y docker.io
@@ -67,5 +66,8 @@ make -C tools/parallel_curl/
 
 # Remaining core deps
 ${FILE_DIR}/setup_sim.sh
+
+# Login to docker after installation
+newgrp docker
 
 echo "Done with Kubernetes setup."

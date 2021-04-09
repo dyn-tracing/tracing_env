@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-          os: [ubuntu-18.04]
+          os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v2
       with:
@@ -21,4 +21,4 @@ jobs:
         ./tools/setup_kube.sh
     - name: Test with pytest
       run: |
-        python3 -m pytest -vrf -k "Kubernetes"
+        python3 -m pytest test_env.py -vrf -k "Kubernetes"

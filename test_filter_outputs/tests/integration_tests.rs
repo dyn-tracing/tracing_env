@@ -18,6 +18,7 @@ mod tests {
         test_dir: &Path,
         query_name: &str,
         udf_names: Vec<&str>,
+        distributed: bool,
     ) {
         let compile_cmd = compiler_dir.join("target/debug/dtc");
         assert!(compile_cmd.exists());
@@ -50,6 +51,11 @@ mod tests {
         args.push("-r");
         args.push(ROOT_NAME);
 
+        if distributed {
+            args.push("-d");
+            args.push("true");
+        }
+
         let mut cmd_obj = Command::new(compile_cmd);
         cmd_obj.args(args);
 
@@ -78,28 +84,57 @@ mod tests {
         "get_service_name.cql",
         vec![],
         "productpage-v1\n" ,
-        None ; "service_name_test"
+        None, false ; "service_name_test"
+    )]
+    #[test_case(
+        "service_name_distributed",
+        "get_service_name.cql",
+        vec![],
+        "productpage-v1\n" ,
+        None, true ; "service_name_distributed_test"
     )]
     #[test_case(
         "height",
         "height.cql",
         vec!["height.rs"],
-        "2\n", 
-        None ; "height_test"
+        "2\n",
+        None , false ; "height_test"
+    )]
+    #[test_case(
+        "height_distributed",
+        "height.cql",
+        vec!["height.rs"],
+        "2\n",
+        None , true ; "height_distributed_test"
     )]
     #[test_case(
         "request_size_avg",
         "request_size_avg.cql",
         vec![],
         "1",
-        Some("../tracing_sim/target/debug/libaggregation_example") ; "request_size_avg_test"
+        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_test"
     )]
+    #[test_case(
+        "request_size_avg_distributed",
+        "request_size_avg.cql",
+        vec![],
+        "1",
+        Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_distributed_test"
+    )]
+
     #[test_case(
         "request_size_avg_trace_attr",
         "request_size_avg_trace_attr.cql",
         vec![],
         "1",
-        Some("../tracing_sim/target/debug/libaggregation_example") ; "request_size_avg_trace_attr_test"
+        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_trace_attr_test"
+    )]
+    #[test_case(
+        "request_size_avg_trace_attr_distributed",
+        "request_size_avg_trace_attr.cql",
+        vec![],
+        "1",
+        Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
 
     fn test(
@@ -108,12 +143,12 @@ mod tests {
         udfs: Vec<&str>,
         expected_output: &str,
         aggregation_id: Option<&str>,
+        distributed: bool,
     ) {
         // 1.Create the necessary directories
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let filter_test_dir = file_dir.join("filters").join(query_id);
         let compiler_dir = file_dir.join("../tracing_compiler");
-        let simulator_dir = file_dir.join("../tracing_sim");
         let generic_cargo = file_dir.join("generic_cargo.toml");
         let dst_cargo = filter_test_dir.join("Cargo.toml");
 
@@ -137,13 +172,14 @@ mod tests {
             filter_test_dir.as_path(),
             query_name,
             udfs,
+            distributed
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
 
         // 4. Create the simulator and test the output
         let mut bookinfo_sim =
-            example_envs::bookinfo::new_bookinfo(0, filter_plugin.to_str(), aggregation_id);
+            example_envs::bookinfo::new_bookinfo(0, None, filter_plugin.to_str(), aggregation_id);
         bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
         for tick in 0..7 {
             bookinfo_sim.tick(tick);
@@ -153,8 +189,8 @@ mod tests {
         // 5. clean up the temporary filter directory
         match fs::remove_dir_all(filter_test_dir) {
             Ok(_) => {}
-            Err(_) => {
-                panic!("Error deleting the filter directory.\n")
+            Err(e) => {
+                println!("Error deleting the filter directory: {:?}\n", e)
             }
         };
     }

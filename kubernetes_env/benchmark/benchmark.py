@@ -11,6 +11,7 @@ import seaborn as sns
 import pandas as pd
 from multiprocessing import Process, Queue
 from concurrent.futures import ThreadPoolExecutor
+import numpy as np
 import matplotlib.pyplot as plt
 import json
 from pathlib import Path
@@ -74,10 +75,17 @@ def transform_data(raw_data):
     # Grouping by bucket range with count and percentiles
     for (idx, ts) in enumerate(filtered_data):
         for bucket in buckets:
-            if ts == bucket["End"]:
-                bucket["Percent"] = (idx / len(filtered_data)) * 100
             if bucket["Start"] <= ts and ts < bucket["End"]:
                 bucket["Count"] += 1
+    
+    total_count = 0
+    for bucket in buckets:
+        total_count += bucket["Count"]
+    incremental_count = 0
+    for bucket in buckets:
+        incremental_count += bucket["Count"]
+        percent = incremental_count / total_count * 100
+        bucket["Percent"] = percent
     bucket_with_percent = [bucket for bucket in buckets if "Percent" in bucket]
     return bucket_with_percent
 
