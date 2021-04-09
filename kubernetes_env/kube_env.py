@@ -241,12 +241,10 @@ def setup_bookinfo_deployment(platform, multizonal, addons=False):
     if result != util.EXIT_SUCCESS:
         return result
     # create the namespace for storage
-    result = check_namespace("storage")
+    cmd = " kubectl create namespace storage "
+    result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
-        cmd = " kubectl create namespace storage "
-        result = util.exec_process(cmd)
-        if result != util.EXIT_SUCCESS:
-            return result
+        return result
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
@@ -390,6 +388,8 @@ def main(args):
         return deploy_bookinfo()
     if args.remove_bookinfo:
         return remove_bookinfo()
+    if args.addons:
+        return deploy_addons()
     if args.clean:
         return stop_kubernetes(args.platform)
     if args.burst:
