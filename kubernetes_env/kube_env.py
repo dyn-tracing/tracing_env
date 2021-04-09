@@ -399,12 +399,8 @@ def handle_filter(args):
 def main(args):
     # single commands to execute
     if args.setup:
-<<<<<<< HEAD
-        return setup_bookinfo_deployment(args.platform, args.multizonal, args.addons)
-=======
         return setup_bookinfo_deployment(args.platform, args.multizonal,
                                          args.addons)
->>>>>>> origin/khanh/benchmark
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:
