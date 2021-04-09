@@ -51,9 +51,9 @@ def inject_istio():
 
 def deploy_addons():
     apply_cmd = "kubectl apply -f "
-    url = "https://raw.githubusercontent.com/istio/istio/release-1.8"
+    url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
     # cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    # cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
+    cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
@@ -131,6 +131,14 @@ def remove_failure():
 
 def check_kubernetes_status():
     cmd = "kubectl cluster-info"
+    result = util.exec_process(cmd,
+                               stdout=util.subprocess.PIPE,
+                               stderr=util.subprocess.PIPE)
+    return result
+
+
+def check_namespace(namespace):
+    cmd = f"kubectl get namespaces | grep {namespace}"
     result = util.exec_process(cmd,
                                stdout=util.subprocess.PIPE,
                                stderr=util.subprocess.PIPE)
@@ -227,20 +235,23 @@ def start_fortio(gateway_url):
     return fortio_proc
 
 
-def setup_bookinfo_deployment(platform, multizonal):
+def setup_bookinfo_deployment(platform, multizonal, addons):
     start_kubernetes(platform, multizonal)
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
         return result
     # create the namespace for storage
-    cmd = " kubectl create namespace storage "
-    result = util.exec_process(cmd)
+    result = check_namespace("storage")
     if result != util.EXIT_SUCCESS:
-        return result
+        cmd = " kubectl create namespace storage "
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    # result = deploy_addons()
+    if addons:
+        result = deploy_addons()
     return result
 
 
@@ -373,7 +384,8 @@ def handle_filter(args):
 def main(args):
     # single commands to execute
     if args.setup:
-        return setup_bookinfo_deployment(args.platform, args.multizonal)
+        return setup_bookinfo_deployment(args.platform, args.multizonal,
+                                         args.addons)
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:
@@ -465,6 +477,11 @@ if __name__ == '__main__':
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
+    parser.add_argument("-a",
+                        "--addons",
+                        dest="addons",
+                        default=False,
+                        help="deploy addons to the cluster")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
