@@ -19,7 +19,7 @@ ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
-FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/rs_filter")
+FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
 CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
@@ -259,15 +259,11 @@ def build_filter(filter_dir):
 def undeploy_filter():
     # delete the config map
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd,
-                               stdout=util.subprocess.PIPE,
-                               stderr=util.subprocess.PIPE)
+    result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map.")
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
-    result = util.exec_process(cmd,
-                               stdout=util.subprocess.PIPE,
-                               stderr=util.subprocess.PIPE)
+    result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the filter.")
     # restore the original bookinfo
@@ -290,9 +286,7 @@ def patch_bookinfo():
 def update_conf_map(filter_dir):
     # delete the config map
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd,
-                               stdout=util.subprocess.PIPE,
-                               stderr=util.subprocess.PIPE)
+    result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map, it does not exist.")
         log.warning("Assuming a patch is required.")
@@ -310,9 +304,7 @@ def update_conf_map(filter_dir):
 def deploy_filter(filter_dir):
     # check if the config map already exists
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
-    result = util.exec_process(cmd,
-                               stdout=util.subprocess.PIPE,
-                               stderr=util.subprocess.PIPE)
+    result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         # create the config map with the filter
         cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
