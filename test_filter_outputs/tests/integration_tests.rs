@@ -1,5 +1,6 @@
 #![feature(command_access)]
 #[cfg(test)]
+
 mod tests {
 
     use rpc_lib::rpc::Rpc;
@@ -92,6 +93,7 @@ mod tests {
         "productpage-v1\n" ,
         None, true ; "service_name_distributed_test"
     )]
+    /*
     #[test_case(
         "height",
         "height.cql",
@@ -106,37 +108,49 @@ mod tests {
         "2\n",
         None , true ; "height_distributed_test"
     )]
+    */
     #[test_case(
         "request_size_avg",
         "request_size_avg.cql",
         vec![],
-        "1",
+        "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_test"
     )]
     #[test_case(
         "request_size_avg_distributed",
         "request_size_avg.cql",
         vec![],
-        "1",
+        "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_distributed_test"
     )]
+
     #[test_case(
         "request_size_avg_trace_attr",
         "request_size_avg_trace_attr.cql",
         vec![],
-        "1",
+        "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_trace_attr_test"
     )]
     #[test_case(
         "request_size_avg_trace_attr_distributed",
         "request_size_avg_trace_attr.cql",
         vec![],
-        "1",
+        "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
-    #[serial_test::serial]
+
+    /*
+    #[test_case(
+        "return_trace",
+        "return_trace.cql",
+        vec![],
+        "trace_graph",
+        None, false ; "return_trace_test"
+    )]
+    */
+
     fn test(
-        _query_id: &str,
+        query_id: &str,
         query_name: &str,
         udfs: Vec<&str>,
         expected_output: &str,
@@ -145,9 +159,7 @@ mod tests {
     ) {
         // 1.Create the necessary directories
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        // TODO: Disable parallel tests until we fix the cargo pull issue
-        // let filter_test_dir = file_dir.join("filters").join(query_id);
-        let filter_test_dir = file_dir.join("filters").join("filter");
+        let filter_test_dir = file_dir.join("filters").join(query_id);
         let compiler_dir = file_dir.join("../tracing_compiler");
         let generic_cargo = file_dir.join("generic_cargo.toml");
         let dst_cargo = filter_test_dir.join("Cargo.toml");
@@ -172,7 +184,7 @@ mod tests {
             filter_test_dir.as_path(),
             query_name,
             udfs,
-            distributed,
+            distributed
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
@@ -184,7 +196,7 @@ mod tests {
         for tick in 0..7 {
             bookinfo_sim.tick(tick);
         }
-        assert_eq!(expected_output, bookinfo_sim.query_storage(STORAGE_NAME));
+        assert!(bookinfo_sim.query_storage(STORAGE_NAME).contains(expected_output), "output was {:?}", bookinfo_sim.query_storage(STORAGE_NAME));
 
         // 5. clean up the temporary filter directory
         match fs::remove_dir_all(filter_test_dir) {
