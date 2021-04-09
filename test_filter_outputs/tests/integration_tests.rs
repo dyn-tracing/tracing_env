@@ -1,6 +1,5 @@
 #![feature(command_access)]
 #[cfg(test)]
-
 mod tests {
 
     use rpc_lib::rpc::Rpc;
@@ -20,7 +19,7 @@ mod tests {
         udf_names: Vec<&str>,
         distributed: bool,
     ) {
-        let compile_cmd = compiler_dir.join("target/debug/dtc");
+        let compile_cmd = compiler_dir.join("target/debug/snicket");
         assert!(compile_cmd.exists());
 
         let mut args: Vec<&str> = Vec::new();
@@ -121,7 +120,6 @@ mod tests {
         "1",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_distributed_test"
     )]
-
     #[test_case(
         "request_size_avg_trace_attr",
         "request_size_avg_trace_attr.cql",
@@ -136,9 +134,9 @@ mod tests {
         "1",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
-
+    #[serial_test::serial]
     fn test(
-        query_id: &str,
+        _query_id: &str,
         query_name: &str,
         udfs: Vec<&str>,
         expected_output: &str,
@@ -147,7 +145,9 @@ mod tests {
     ) {
         // 1.Create the necessary directories
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let filter_test_dir = file_dir.join("filters").join(query_id);
+        // TODO: Disable parallel tests until we fix the cargo pull issue
+        // let filter_test_dir = file_dir.join("filters").join(query_id);
+        let filter_test_dir = file_dir.join("filters").join("filter");
         let compiler_dir = file_dir.join("../tracing_compiler");
         let generic_cargo = file_dir.join("generic_cargo.toml");
         let dst_cargo = filter_test_dir.join("Cargo.toml");
@@ -172,7 +172,7 @@ mod tests {
             filter_test_dir.as_path(),
             query_name,
             udfs,
-            distributed
+            distributed,
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
