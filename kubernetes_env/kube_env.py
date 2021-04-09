@@ -242,7 +242,7 @@ def start_fortio(gateway_url):
     return fortio_proc
 
 
-def setup_bookinfo_deployment(platform, multizonal, addons):
+def setup_bookinfo_deployment(platform, multizonal, addons=False):
     start_kubernetes(platform, multizonal)
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
@@ -400,7 +400,7 @@ def main(args):
     # single commands to execute
     if args.setup:
         return setup_bookinfo_deployment(args.platform, args.multizonal,
-                                         args.addons)
+                                         addons=args.addons)
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:
