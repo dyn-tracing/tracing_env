@@ -52,9 +52,9 @@ def inject_istio():
 def deploy_addons():
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
-    # cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
-    # cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
+    cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
+    cmd += f"{apply_cmd} {url}/samples/addons/jaeger.yaml && "
+    cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
     result = util.exec_process(cmd)
@@ -235,7 +235,7 @@ def start_fortio(gateway_url):
     return fortio_proc
 
 
-def setup_bookinfo_deployment(platform, multizonal, addons=False):
+def setup_bookinfo_deployment(platform, multizonal):
     start_kubernetes(platform, multizonal)
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
@@ -248,8 +248,6 @@ def setup_bookinfo_deployment(platform, multizonal, addons=False):
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    if addons:
-        result = deploy_addons()
     return result
 
 
@@ -382,8 +380,7 @@ def handle_filter(args):
 def main(args):
     # single commands to execute
     if args.setup:
-        return setup_bookinfo_deployment(args.platform, args.multizonal,
-                                         addons=args.addons)
+        return setup_bookinfo_deployment(args.platform, args.multizonal)
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:

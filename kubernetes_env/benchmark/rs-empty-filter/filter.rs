@@ -119,17 +119,17 @@ impl HttpHeaders {
     }
 
     fn on_http_request_headers_inbound(&mut self) {
-       log::warn!("Traversed.") 
+       log::warn!("Traversing request inbound.") 
     }
     fn on_http_request_headers_outbound(&mut self) {
-       log::warn!("Traversed.") 
+       log::warn!("Traversed request outbound.") 
     }
 
     fn on_http_response_headers_inbound(&mut self) {
-       log::warn!("Traversed.") 
+       log::warn!("Traversed response inbound.") 
     }
 
     fn on_http_response_headers_outbound(&mut self) {
-       log::warn!("Traversed.") 
+       log::warn!("Traversed response outbound.") 
     }
 }

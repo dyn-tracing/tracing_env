@@ -60,24 +60,23 @@ def transform_data(raw_data):
     log.info("Transforming load data....")
     filtered_data = [datum for datum in raw_data if datum is not None]
     filtered_data.sort()
-    min_val = min(filtered_data)
     max_val = max(filtered_data)
-    # Setting up bucket range. What should this be?
-    diff = (max_val - min_val) // 10
+    # Setting up bucket range. What should the optimal diff be?
+    diff = (max(filtered_data) - min(filtered_data)) / 10
     buckets = []
-    for i in range(min_val, max_val, diff):
+    for latency in filtered_data:
         buckets.append({
-            "Start": i,
-            "End": i + diff if i + diff < max_val else max_val,
+            "Start": latency,
+            "End": latency + diff if latency + diff < max_val else max_val,
             "Count": 0
         })
-
+    
     # Grouping by bucket range with count and percentiles
     for (idx, ts) in enumerate(filtered_data):
         for bucket in buckets:
             if bucket["Start"] <= ts and ts < bucket["End"]:
                 bucket["Count"] += 1
-
+    
     total_count = 0
     for bucket in buckets:
         total_count += bucket["Count"]
@@ -166,11 +165,10 @@ def run_fortio(url, platform, threads, qps, run_time, file_name):
 def burst_loop(url, threads, qps, run_time, queue):
     def send_request(_):
         try:
-            start = round(time.time() * 1000)
             # What should timeout be?
-            requests.get(url)
-            end = round(time.time() * 1000)
-            return end - start
+            res = requests.get(url)
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
         except requests.exceptions.ReadTimeout:
             pass
 
