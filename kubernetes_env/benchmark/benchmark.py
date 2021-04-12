@@ -9,6 +9,7 @@ import requests
 import time
 import seaborn as sns
 import pandas as pd
+from datetime import datetime, timedelta
 from multiprocessing import Process, Queue
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
@@ -175,8 +176,12 @@ def burst_loop(url, threads, qps, run_time, queue):
     log.info("Starting burst...")
 
     with ThreadPoolExecutor(max_workers=threads) as p:
-        results = list(p.map(send_request, range(qps * run_time)))
-        queue.put(results)
+        current = datetime.now()
+        end = current + timedelta(seconds=run_time)
+        while current < end:
+            results = list(p.map(send_request, range(qps), chunksize=qps//threads))
+            current += timedelta(seconds=1)
+            queue.put(results)
 
 
 def do_burst(url, platform, threads, qps, run_time):
@@ -194,7 +199,7 @@ def do_burst(url, platform, threads, qps, run_time):
     p.join()
     return queue.get()
 
-
+ 
 def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
