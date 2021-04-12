@@ -197,8 +197,11 @@ def do_burst(url, platform, threads, qps, run_time):
     ))
     p.start()
     p.join()
-    return queue.get()
-
+    output = []
+    qsize = queue.qsize()
+    for i in range(qsize):
+        output += queue.get()
+    return output
  
 def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
