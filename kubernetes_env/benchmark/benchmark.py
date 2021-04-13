@@ -34,113 +34,46 @@ def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
 
 
-def convert_data(data):
-    return {
-        "Count":
-        data["Count"],
-        "Min":
-        sec_to_ms(data["Min"]),
-        "Max":
-        sec_to_ms(data["Max"]),
-        "Sum":
-        sec_to_ms(data["Sum"]),
-        "Avg":
-        sec_to_ms(data["Avg"]),
-        "StdDev":
-        sec_to_ms(data["StdDev"]),
-        "Data": [{
-            "Start": sec_to_ms(datum["Start"]),
-            "End": sec_to_ms(datum["End"]),
-            "Percent": datum["Percent"],
-            "Count": datum["Count"]
-        } for datum in data["Data"]]
-    }
-
-
-def transform_data(raw_data):
-    log.info("Transforming load data....")
-    filtered_data = [datum for datum in raw_data if datum is not None]
-    filtered_data.sort()
-    max_val = max(filtered_data)
-    # Setting up bucket range. What should the optimal diff be?
-    diff = (max(filtered_data) - min(filtered_data)) / 10
-    buckets = []
-    for latency in filtered_data:
-        buckets.append({
-            "Start": latency,
-            "End": latency + diff if latency + diff < max_val else max_val,
-            "Count": 0
-        })
-    
-    # Grouping by bucket range with count and percentiles
-    for (idx, ts) in enumerate(filtered_data):
-        for bucket in buckets:
-            if bucket["Start"] <= ts and ts < bucket["End"]:
-                bucket["Count"] += 1
-    
-    total_count = 0
-    for bucket in buckets:
-        total_count += bucket["Count"]
-    incremental_count = 0
-    for bucket in buckets:
-        incremental_count += bucket["Count"]
-        percent = incremental_count / total_count * 100
-        bucket["Percent"] = percent
-    bucket_with_percent = [bucket for bucket in buckets if "Percent" in bucket]
-    return bucket_with_percent
+def transform_loadgen_data(filters, data):
+    combined_data = {}
+    for fname, loadgen in zip(filters, data):
+        combined_data[fname] = loadgen
+    return pd.DataFrame(combined_data)
 
 
 def transform_fortio_data(filters):
     names = []
     json_data = []
-    for fname in filters:
-        with open(f"{DATA_DIR}/{fname}.json") as jsonf:
-            json_data.append(json.load(jsonf))
-    if not json_data:
-        log.error("No json data available")
-        return util.EXIT_FAILURE
-    duration_data = [
-        convert_data(data["DurationHistogram"]) for data in json_data
-    ]
-    qps = json_data[0]["RequestedQPS"]
-    duration = json_data[0]["RequestedDuration"]
-    title = f"QPS: {qps}. Duration: ${duration}. "
-    final_data = []
-    for (idx, data) in enumerate(duration_data):
-        final_data.append(data["Data"])
-        avg = data["Avg"]
-        title += f"{filters[idx]} Avg: {avg} ms. "
-    return final_data, title
-
-
-def plot(results, filters, title, fortio=True):
-    if not results or not filters or len(results) != len(filters):
-        log.error("Data and filters mismatched or don't exists!")
-        return util.EXIT_FAILURE
-    res_times = [0]
-    percentiles = [0]
     dfs = []
-    for (idx, data) in enumerate(results):
-        for datum in data:
-          res_times.append(datum["Start"])
-          res_times.append(datum["End"])
-          percentiles.append(float(datum["Percent"]))
-          percentiles.append(float(datum["Percent"]))
-        df = pd.DataFrame(
-            data={
-                "Response time (ms)": res_times,
-                "Percentiles": percentiles,
-                "Filter": filters[idx]
+    title = ""
+    for fname in filters:
+        latency = [0]
+        percentages = [0]
+        with open(f"{DATA_DIR}/{fname}.json") as jsonf:
+            hist_data = json.load(jsonf)["DurationHistogram"]
+            fortio_data = hist_data["Data"]
+            avg_ms = sec_to_ms(hist_data["Avg"])
+            title += f"Filter: {fname} - Avg: {avg_ms} ms. "
+            for (idx, datum) in enumerate(fortio_data):
+                if idx == 0:
+                    latency.append(sec_to_ms(datum["Start"]))
+                    percentages.append(datum["Percent"])
+                latency.append(sec_to_ms(datum["End"]))
+                percentages.append(datum["Percent"])
+            df = pd.DataFrame({
+                "Latency (ms)": latency,
+                "Percent": percentages
             })
-        dfs.append(df)
-    final_df = pd.concat(dfs)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    sns.lineplot(data=final_df,
-                 x="Response time (ms)",
-                 y="Percentiles",
-                 hue="Filter",
-                 ci=False,
-                 marker='o')
+            dfs.append(df)
+    return dfs, title
+
+
+def plot(dfs, filters, title, fortio=True):
+    if fortio:
+        for df in dfs:
+            sns.lineplot(data=df, x="Latency (ms)", y="Percent")
+    else:
+        plot = sns.distplot(dfs, kde_kws={'cumulative': True})
     plt.title(title)
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
     plot_name = "-".join(filters) + timestamp
@@ -148,6 +81,7 @@ def plot(results, filters, title, fortio=True):
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
     return util.EXIT_SUCCESS
+
 
 def run_fortio(url, platform, threads, qps, run_time, file_name):
     util.check_dir(DATA_DIR)
@@ -179,7 +113,8 @@ def burst_loop(url, threads, qps, run_time, queue):
         current = datetime.now()
         end = current + timedelta(seconds=run_time)
         while current < end:
-            results = list(p.map(send_request, range(qps), chunksize=qps//threads))
+            results = list(
+                p.map(send_request, range(qps), chunksize=qps // threads))
             current += timedelta(seconds=1)
             queue.put(results)
 
@@ -202,7 +137,8 @@ def do_burst(url, platform, threads, qps, run_time):
     for i in range(qsize):
         output += queue.get()
     return output
- 
+
+
 def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
@@ -250,13 +186,14 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
             log.info("Generating load...")
             burst_res = do_burst(product_url, platform, threads, qps, time)
             results.append(burst_res)
+            np.save("results.npy", results)
 
     if custom == "fortio":
-        fortio_data, title = transform_fortio_data(filters)
-        return plot(fortio_data, filters, title, fortio=True)
+        fortio_df, title = transform_fortio_data(filters)
+        return plot(fortio_df, filters, title, fortio=True)
     else:
-        res_with_counts = [transform_data(res) for res in results]
-        return plot(res_with_counts, filters, "", fortio=False)
+        loadgen_df = transform_loadgen_data(filters, results)
+        return plot(loadgen_df, filters, "", fortio=False)
 
 
 def main(args):
