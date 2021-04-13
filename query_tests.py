@@ -30,24 +30,33 @@ def process_response(text):
     return result_dict
 
 
-def generate_filter(filter_name, udfs):
+def generate_filter(filter_name, udfs, distributed=False):
     log.info("Generating the filter %s with udfs %s", filter_name, udfs)
     cmd = f"{COMPILER_BINARY} "
     cmd += f"-q {QUERY_DIR.joinpath(filter_name)} "
     for udf in udfs:
         cmd += f"-u {UDF_DIR.joinpath(udf)} "
     cmd += "-r productpage-v1 "
+    if distributed:
+        cmd += f"-d true "
+        cmd += f"-o {kube_env.DISTRIBUTED_FILTER_DIR}/filter.rs "
     result = util.exec_process(cmd)
     return result
 
 
-def bootstrap():
+def bootstrap(distributed=False):
     # build the filter
     log.info("Building the filter")
-    result = kube_env.build_filter(kube_env.FILTER_DIR)
-    assert result == util.EXIT_SUCCESS
-    log.info("Refresh the filter")
-    result = kube_env.refresh_filter(kube_env.FILTER_DIR)
+    if distributed:
+        result = kube_env.build_filter(kube_env.DISTRIBUTED_FILTER_DIR)
+        assert result == util.EXIT_SUCCESS
+        log.info("Refresh the filter")
+        result = kube_env.refresh_filter(kube_env.DISTRIBUTED_FILTER_DIR)
+    else: 
+        result = kube_env.build_filter(kube_env.FILTER_DIR)
+        assert result == util.EXIT_SUCCESS
+        log.info("Refresh the filter")
+        result = kube_env.refresh_filter(kube_env.FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 60 seconds")
     time.sleep(60)
@@ -58,13 +67,13 @@ def bootstrap():
     return storage_proc
 
 
-def test_count(platform="MK"):
+def test_count(platform="MK", distributed=False):
     # generate the filter code
-    result = generate_filter("count.cql", ["count.cc"])
+    result = generate_filter("count.cql", ["count.cc"], distributed)
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
-    storage_proc = bootstrap()
+    storage_proc = bootstrap(distributed)
 
     # first request
     log.info("Sending request #1")
@@ -95,13 +104,13 @@ def test_count(platform="MK"):
     return util.EXIT_SUCCESS
 
 
-def test_height(platform="MK"):
+def test_height(platform="MK", distributed=False):
     # generate the filter code
-    result = generate_filter("height.cql", ["height.rs"])
+    result = generate_filter("height.cql", ["height.rs"], distributed)
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
-    storage_proc = bootstrap()
+    storage_proc = bootstrap(distributed)
 
     # first request
     log.info("Sending request #1")
@@ -116,17 +125,19 @@ def test_height(platform="MK"):
     return util.EXIT_SUCCESS
 
 
-def test_get_service_name(platform="MK"):
+def test_get_service_name(platform="MK", distributed=False):
     # generate the filter code
-    result = generate_filter("get_service_name.cql", [])
+    result = generate_filter("get_service_name.cql", [], distributed)
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
-    storage_proc = bootstrap()
+    storage_proc = bootstrap(distributed)
 
+    
     # first request
     log.info("Sending request #1")
     requests.send_request(platform)
+    log.info("Querying storage")
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
@@ -138,13 +149,13 @@ def test_get_service_name(platform="MK"):
     return util.EXIT_SUCCESS
 
 
-def test_request_size(platform="MK"):
+def test_request_size(platform="MK", distributed=False):
     # generate the filter code
-    result = generate_filter("request_size.cql", [])
+    result = generate_filter("request_size.cql", [], distributed)
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
-    storage_proc = bootstrap()
+    storage_proc = bootstrap(distributed)
 
     # first request
     log.info("Sending request #1")
@@ -165,7 +176,9 @@ def main(args):
     # UDF not implemented
     # test_count(args.platform)
     test_get_service_name(args.platform)
+    test_get_service_name(args.platform, True)
     test_height(args.platform)
+    test_height(args.platform, True)
     # Bug in serialization of data
     # test_request_size(args.platform)
 

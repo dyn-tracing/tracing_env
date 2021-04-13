@@ -93,7 +93,6 @@ mod tests {
         "productpage-v1\n" ,
         None, true ; "service_name_distributed_test"
     )]
-    /*
     #[test_case(
         "height",
         "height.cql",
@@ -108,7 +107,6 @@ mod tests {
         "2\n",
         None , true ; "height_distributed_test"
     )]
-    */
     #[test_case(
         "request_size_avg",
         "request_size_avg.cql",
@@ -138,7 +136,6 @@ mod tests {
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
-
     /*
     #[test_case(
         "return_trace",
