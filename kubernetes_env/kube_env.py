@@ -14,12 +14,13 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.1")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.2")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
+DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/distributed_filter_envoy")
 CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
