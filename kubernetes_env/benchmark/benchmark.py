@@ -53,7 +53,7 @@ def transform_fortio_data(filters):
             hist_data = json.load(jsonf)["DurationHistogram"]
             fortio_data = hist_data["Data"]
             avg_ms = sec_to_ms(hist_data["Avg"])
-            title += f"Filter: {fname} - Avg: {avg_ms} ms. "
+            title += f"{fname} - avg: {avg_ms} ms. "
             for (idx, datum) in enumerate(fortio_data):
                 if idx == 0:
                     latency.append(sec_to_ms(datum["Start"]))
@@ -69,16 +69,16 @@ def transform_fortio_data(filters):
 
 
 def plot(dfs, filters, title, fortio=True):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
+    plot_name = "-".join(filters) + timestamp
     if fortio:
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
         plt.legend(labels=filters)
-        plt.title(title)
+        plt.title(f"Fortio: {title}")
     else:
         plot = sns.displot(dfs, kind="ecdf")
-        plot.set(title=title)
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
-    plot_name = "-".join(filters) + timestamp
+        plot.set(title=plot_name)
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
@@ -169,18 +169,19 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
                       " Make sure you give the right path")
             return util.EXIT_FAILURE
 
-        # Might break for filter_dir/
-        fname = fd.split("/")[-1]
+        # wait for kubernetes set up to finish
+        time.sleep(10)
+        fname = Path(fd).name
         filters.append(fname)
-        # warm up with 100qps for 10s
-        warmup_res = do_burst(product_url, platform, threads, 20, 5)
+        log.info("Warming up...")
+        warmup_res = do_burst(product_url, platform, threads, 100, 10)
         if not warmup_res:
             log.error("No data was collected during warm up")
             return uitl.EXIT_FAILURE
         if custom == "fortio":
             log.info("Running fortio...")
-            fortio_res = run_fortio(product_url, platform, threads, qps, run_time,
-                                    fname)
+            fortio_res = run_fortio(product_url, platform, threads, qps,
+                                    run_time, fname)
             if fortio_res != util.EXIT_SUCCESS:
                 log.error(f"Error benchmarking for {fd}")
                 return util.EXIT_FAILURE
