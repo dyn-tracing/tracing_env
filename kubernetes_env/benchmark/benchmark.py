@@ -38,7 +38,7 @@ def transform_loadgen_data(filters, data):
     combined_data = {}
     for fname, loadgen in zip(filters, data):
         combined_data[fname] = loadgen
-    return pd.DataFrame(combined_data)
+    return pd.DataFrame(combined_data, columns=filters)
 
 
 def transform_fortio_data(filters):
@@ -72,9 +72,11 @@ def plot(dfs, filters, title, fortio=True):
     if fortio:
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
+        plt.legend(labels=filters)
+        plt.title(title)
     else:
-        plot = sns.distplot(dfs, kde_kws={'cumulative': True})
-    plt.title(title)
+        plot = sns.displot(dfs, kind="ecdf")
+        plot.set(title=title)
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time()))
     plot_name = "-".join(filters) + timestamp
     util.check_dir(GRAPHS_DIR)
@@ -122,7 +124,6 @@ def burst_loop(url, threads, qps, run_time, queue):
 def do_burst(url, platform, threads, qps, run_time):
     queue = Queue()
     _, _, gateway_url = kube_env.get_gateway_info(platform)
-    log.info(f"gateway url: {url}")
     p = Process(target=burst_loop, args=(
         url,
         threads,
@@ -139,7 +140,7 @@ def do_burst(url, platform, threads, qps, run_time):
     return output
 
 
-def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
+def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
@@ -147,6 +148,7 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
 
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     product_url = f"http://{gateway_url}/productpage"
+    log.info(f"Gateway URL: {product_url}")
     results = []
     filters = []
     for f in DATA_DIR.glob("*"):
@@ -171,28 +173,29 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, time):
         fname = fd.split("/")[-1]
         filters.append(fname)
         # warm up with 100qps for 10s
-        warmup_res = run_fortio(product_url, platform, threads, 100, 10, fname)
-        if warmup_res != util.EXIT_SUCCESS:
-            log.error(f"Error benchmarking for {fd}")
-            return util.EXIT_FAILURE
+        warmup_res = do_burst(product_url, platform, threads, 20, 5)
+        if not warmup_res:
+            log.error("No data was collected during warm up")
+            return uitl.EXIT_FAILURE
         if custom == "fortio":
             log.info("Running fortio...")
-            fortio_res = run_fortio(product_url, platform, threads, qps, time,
+            fortio_res = run_fortio(product_url, platform, threads, qps, run_time,
                                     fname)
             if fortio_res != util.EXIT_SUCCESS:
                 log.error(f"Error benchmarking for {fd}")
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
-            burst_res = do_burst(product_url, platform, threads, qps, time)
+            burst_res = do_burst(product_url, platform, threads, qps, run_time)
             results.append(burst_res)
-            np.save("results.npy", results)
 
     if custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
+        np.save("fortio", fortio_df)
         return plot(fortio_df, filters, title, fortio=True)
     else:
         loadgen_df = transform_loadgen_data(filters, results)
+        np.save("output", loadgen_df)
         return plot(loadgen_df, filters, "", fortio=False)
 
 
