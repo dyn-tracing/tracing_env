@@ -38,7 +38,8 @@ def generate_filter(filter_name, udfs, distributed=False):
         cmd += f"-u {UDF_DIR.joinpath(udf)} "
     cmd += "-r productpage-v1 "
     if distributed:
-        cmd += f"-d true "
+        print("hello\n\n\n\n")
+        cmd += f"-d "
         cmd += f"-o {kube_env.DISTRIBUTED_FILTER_DIR}/filter.rs "
     result = util.exec_process(cmd)
     return result
@@ -47,16 +48,14 @@ def generate_filter(filter_name, udfs, distributed=False):
 def bootstrap(distributed=False):
     # build the filter
     log.info("Building the filter")
+    filter_dir = kube_env.FILTER_DIR
     if distributed:
-        result = kube_env.build_filter(kube_env.DISTRIBUTED_FILTER_DIR)
-        assert result == util.EXIT_SUCCESS
-        log.info("Refresh the filter")
-        result = kube_env.refresh_filter(kube_env.DISTRIBUTED_FILTER_DIR)
-    else: 
-        result = kube_env.build_filter(kube_env.FILTER_DIR)
-        assert result == util.EXIT_SUCCESS
-        log.info("Refresh the filter")
-        result = kube_env.refresh_filter(kube_env.FILTER_DIR)
+        filter_dir = kube_env.DISTRIBUTED_FILTER_DIR
+
+    result = kube_env.build_filter(filter_dir)
+    assert result == util.EXIT_SUCCESS
+    log.info("Refresh the filter")
+    result = kube_env.refresh_filter(filter_dir)
     # sleep a little, so things initialize better
     log.info("Sleeping for 60 seconds")
     time.sleep(60)

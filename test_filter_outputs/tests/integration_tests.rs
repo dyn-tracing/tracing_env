@@ -53,7 +53,6 @@ mod tests {
 
         if distributed {
             args.push("-d");
-            args.push("true");
         }
 
         let mut cmd_obj = Command::new(compile_cmd);
@@ -136,7 +135,6 @@ mod tests {
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
-    /*
     #[test_case(
         "return_trace",
         "return_trace.cql",
@@ -144,7 +142,6 @@ mod tests {
         "trace_graph",
         None, false ; "return_trace_test"
     )]
-    */
 
     fn test(
         query_id: &str,
