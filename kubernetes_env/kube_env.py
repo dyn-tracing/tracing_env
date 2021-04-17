@@ -137,14 +137,6 @@ def check_kubernetes_status():
     return result
 
 
-def check_namespace(namespace):
-    cmd = f"kubectl get namespaces | grep {namespace}"
-    result = util.exec_process(cmd,
-                               stdout=util.subprocess.PIPE,
-                               stderr=util.subprocess.PIPE)
-    return result
-
-
 def start_kubernetes(platform, multizonal):
     if platform == "GCP":
         cmd = "gcloud container clusters create demo --enable-autoupgrade "
@@ -474,8 +466,8 @@ if __name__ == '__main__':
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
-    parser.add_argument("-a",
-                        "--addons",
+    parser.add_argument("-ea",
+                        "--enable-addons",
                         dest="addons",
                         default=False,
                         help="deploy addons to the cluster")
