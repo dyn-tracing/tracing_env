@@ -52,10 +52,10 @@ def inject_istio():
 
 def deploy_addons():
     apply_cmd = "kubectl apply -f "
-    url = "https://raw.githubusercontent.com/istio/istio/release-1.8"
-    # cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    # cmd = f"{apply_cmd} {url}/samples/addons/jaeger.yaml "
-    # cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
+    url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
+    cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
+    cmd += f"{apply_cmd} {url}/samples/addons/jaeger.yaml && "
+    cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
     # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
     result = util.exec_process(cmd)
@@ -241,7 +241,6 @@ def setup_bookinfo_deployment(platform, multizonal):
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    # result = deploy_addons()
     return result
 
 
@@ -379,6 +378,8 @@ def main(args):
         return deploy_bookinfo()
     if args.remove_bookinfo:
         return remove_bookinfo()
+    if args.addons:
+        return deploy_addons()
     if args.clean:
         return stop_kubernetes(args.platform)
     if args.burst:
@@ -466,6 +467,11 @@ if __name__ == '__main__':
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
+    parser.add_argument("-ea",
+                        "--enable-addons",
+                        dest="addons",
+                        default=False,
+                        help="deploy addons to the cluster")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
