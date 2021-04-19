@@ -98,9 +98,9 @@ def run_fortio(url, platform, threads, qps, run_time, file_name):
         return fortio_res
 
 
-
 def do_burst(url, platform, threads, qps, run_time):
     output = []
+
     def send_request(_):
         try:
             # What should timeout be?
@@ -142,14 +142,16 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
         build_res = kube_env.build_filter(fd)
 
         if build_res != util.EXIT_SUCCESS:
-            log.error("Building filter failed for %s."
-                      " Make sure you give the right path", fd)
+            log.error(
+                "Building filter failed for %s."
+                " Make sure you give the right path", fd)
             return util.EXIT_FAILURE
 
         filter_res = kube_env.refresh_filter(fd)
         if filter_res != util.EXIT_SUCCESS:
-            log.error("Deploying filter failed for %s."
-                      " Make sure you give the right path", fd)
+            log.error(
+                "Deploying filter failed for %s."
+                " Make sure you give the right path", fd)
             return util.EXIT_FAILURE
 
         # wait for kubernetes set up to finish
