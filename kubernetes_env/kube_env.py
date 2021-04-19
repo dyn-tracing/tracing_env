@@ -54,10 +54,9 @@ def deploy_addons():
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
     cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    cmd += f"{apply_cmd} {url}/samples/addons/jaeger.yaml && "
-    cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
-    # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
-    # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
+    # Kiali needs to run twice from this issue: github.com/istio/istio/issues/27417
+    addons = ["jaeger", "grafana", "kiali", "kiali"]
+    cmd += " && ".join([f"{apply_cmd} {url}/samples/addons/{addon}.yaml" for addon in addons])
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -471,7 +470,7 @@ if __name__ == '__main__':
                         "--enable-addons",
                         dest="addons",
                         default=False,
-                        help="deploy addons to the cluster")
+                        help="List of addons for cluster")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
