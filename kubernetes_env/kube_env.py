@@ -472,7 +472,7 @@ if __name__ == '__main__':
                         "--enable-addons",
                         dest="addons",
                         default=False,
-                        help="List of addons for cluster")
+                        help="Enable addons for cluster")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
