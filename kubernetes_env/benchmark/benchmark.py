@@ -10,7 +10,6 @@ import time
 import seaborn as sns
 import pandas as pd
 from datetime import datetime, timedelta
-from multiprocessing import Process, Queue
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import matplotlib.pyplot as plt
@@ -99,7 +98,9 @@ def run_fortio(url, platform, threads, qps, run_time, file_name):
         return fortio_res
 
 
-def burst_loop(url, threads, qps, run_time, queue):
+
+def do_burst(url, platform, threads, qps, run_time):
+    output = []
     def send_request(_):
         try:
             # What should timeout be?
@@ -118,25 +119,7 @@ def burst_loop(url, threads, qps, run_time, queue):
             results = list(
                 p.map(send_request, range(qps), chunksize=qps // threads))
             current += timedelta(seconds=1)
-            queue.put(results)
-
-
-def do_burst(url, platform, threads, qps, run_time):
-    queue = Queue()
-    _, _, gateway_url = kube_env.get_gateway_info(platform)
-    p = Process(target=burst_loop, args=(
-        url,
-        threads,
-        qps,
-        run_time,
-        queue,
-    ))
-    p.start()
-    p.join()
-    output = []
-    qsize = queue.qsize()
-    for i in range(qsize):
-        output += queue.get()
+            output += results
     return output
 
 
@@ -148,7 +131,7 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
 
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     product_url = f"http://{gateway_url}/productpage"
-    log.info(f"Gateway URL: {product_url}")
+    log.info("Gateway URL: %s", product_url)
     results = []
     filters = []
     for f in DATA_DIR.glob("*"):
@@ -159,14 +142,14 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
         build_res = kube_env.build_filter(fd)
 
         if build_res != util.EXIT_SUCCESS:
-            log.error(f"Building filter failed for {fd}."
-                      " Make sure you give the right path")
+            log.error("Building filter failed for %s."
+                      " Make sure you give the right path", fd)
             return util.EXIT_FAILURE
 
         filter_res = kube_env.refresh_filter(fd)
         if filter_res != util.EXIT_SUCCESS:
-            log.error(f"Deploying filter failed for {fd}."
-                      " Make sure you give the right path")
+            log.error("Deploying filter failed for %s."
+                      " Make sure you give the right path", fd)
             return util.EXIT_FAILURE
 
         # wait for kubernetes set up to finish
@@ -174,7 +157,7 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
         fname = Path(fd).name
         filters.append(fname)
         log.info("Warming up...")
-        warmup_res = do_burst(product_url, platform, threads, 100, 10)
+        warmup_res = do_burst(product_url, platform, threads, 10, 1)
         if not warmup_res:
             log.error("No data was collected during warm up")
             return uitl.EXIT_FAILURE
@@ -183,7 +166,7 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
             fortio_res = run_fortio(product_url, platform, threads, qps,
                                     run_time, fname)
             if fortio_res != util.EXIT_SUCCESS:
-                log.error(f"Error benchmarking for {fd}")
+                log.error("Error benchmarking for %s", fd)
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
@@ -216,7 +199,7 @@ if __name__ == '__main__':
                         "--log-file",
                         dest="log_file",
                         default="benchmark.log",
-                        help="Spe:cifies name of the log file.")
+                        help="Specifies name of the log file.")
     parser.add_argument(
         "-ll",
         "--log-level",
@@ -253,13 +236,13 @@ if __name__ == '__main__':
     parser.add_argument("-qps",
                         dest="qps",
                         type=int,
-                        default=300,
+                        default=50,
                         help="Query per second")
     parser.add_argument("-t",
                         "--time",
                         dest="time",
                         type=int,
-                        default=5,
+                        default=30,
                         help="Time for fortio")
     parser.add_argument("-cu",
                         "--use-custom",
