@@ -20,7 +20,8 @@ YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
-DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/distributed_filter_envoy")
+DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath(
+    "../tracing_compiler/distributed_filter_envoy")
 CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
@@ -56,7 +57,8 @@ def deploy_addons():
     cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
     # Kiali needs to run twice from this issue: github.com/istio/istio/issues/27417
     addons = ["jaeger", "grafana", "kiali", "kiali"]
-    cmd += " && ".join([f"{apply_cmd} {url}/samples/addons/{addon}.yaml" for addon in addons])
+    cmd += " && ".join(
+        [f"{apply_cmd} {url}/samples/addons/{addon}.yaml" for addon in addons])
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
