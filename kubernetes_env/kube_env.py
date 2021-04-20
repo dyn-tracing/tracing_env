@@ -51,14 +51,19 @@ def inject_istio():
     return result
 
 
-def deploy_addons():
+def deploy_addons(addons):
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
-    cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    # Kiali needs to run twice from this issue: github.com/istio/istio/issues/27417
-    addons = ["jaeger", "grafana", "kiali", "kiali"]
-    cmd += " && ".join(
-        [f"{apply_cmd} {url}/samples/addons/{addon}.yaml" for addon in addons])
+    cmd = ""
+    if "kiali" in addons:
+        addons.append("kiali")
+    for (idx, addon) in enumerate(addons):
+        if addon == "prometheus-mod":
+            cmd += f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml"
+        else:
+            cmd += f"{apply_cmd} {url}/samples/addons/{addon}.yaml"
+        if idx < len(addons) - 1:
+            cmd += " && "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -72,6 +77,20 @@ def deploy_addons():
         _ = util.exec_process(wait_cmd)
     log.info("Addons are ready.")
     return util.EXIT_SUCCESS
+
+
+def remove_addons(addons):
+    remove_cmd = "kubectl delete -f"
+    url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
+    cmd = ""
+    for (idx, addon) in enumerate(addons):
+        if addon == "prometheus-mod":
+            cmd += f"{remove_cmd} {YAML_DIR}/prometheus-mod.yaml --ignore-not-found=true"
+        else:
+            cmd += f"{remove_cmd} {url}/samples/addons/{addon}.yaml --ignore-not-found=true"
+        if idx < len(addons) - 1:
+            cmd += " && "
+    return util.exec_process(cmd)
 
 
 def bookinfo_wait():
@@ -109,7 +128,7 @@ def deploy_bookinfo():
 
 
 def remove_bookinfo():
-    # launch bookinfo
+    # remove bookinfo
     samples_dir = f"{ISTIO_DIR}/samples"
     bookinfo_dir = f"{samples_dir}/bookinfo"
     cmd = f"{bookinfo_dir}/platform/kube/cleanup.sh &&"
@@ -379,8 +398,10 @@ def main(args):
         return deploy_bookinfo()
     if args.remove_bookinfo:
         return remove_bookinfo()
-    if args.addons:
-        return deploy_addons()
+    if args.deploy_addons:
+        return deploy_addons(args.deploy_addons)
+    if args.remove_addons:
+        return remove_addons(args.remove_addons)
     if args.clean:
         return stop_kubernetes(args.platform)
     if args.burst:
@@ -468,11 +489,20 @@ if __name__ == '__main__':
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
-    parser.add_argument("-ea",
-                        "--enable-addons",
-                        dest="addons",
-                        default=False,
-                        help="Enable addons for cluster")
+    parser.add_argument("-da",
+                        "--deploy-addons",
+                        dest="deploy_addons",
+                        nargs="+",
+                        type=str,
+                        default=[],
+                        help="Deploy addons. ")
+    parser.add_argument("-ra",
+                        "--remove-addons",
+                        dest="remove_addons",
+                        nargs="+",
+                        type=str,
+                        default=[],
+                        help="Remove addons. ")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
