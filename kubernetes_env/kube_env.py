@@ -48,6 +48,15 @@ def inject_istio():
         return result
     cmd = "kubectl label namespace default istio-injection=enabled --overwrite"
     result = util.exec_process(cmd)
+
+    cmd = f"{ISTIO_BIN} install --set profile=demo -n storage "
+    cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+    cmd = "kubectl label namespace storage istio-injection=enabled --overwrite"
+    result = util.exec_process(cmd)
+
     return result
 
 
@@ -234,11 +243,10 @@ def setup_bookinfo_deployment(platform, multizonal):
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
         return result
-    # create the namespace for storage
-    cmd = " kubectl create namespace storage "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    #cmd = " kubectl create namespace storage "
+    #result = util.exec_process(cmd)
+    #if result != util.EXIT_SUCCESS:
+    #    return result
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
