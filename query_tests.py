@@ -58,7 +58,6 @@ def bootstrap(distributed=False):
     assert result == util.EXIT_SUCCESS
     log.info("Refresh the filters")
     result = kube_env.refresh_filter(filter_dir)
-    result = kube_env.refresh_filter(AGGR_FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 60 seconds")
     time.sleep(60)
@@ -140,7 +139,7 @@ def test_height_avg(platform="MK", distributed=False):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert "3" in result_set, "expected 3 received %s" % result_set
+    assert "2" in result_set, "expected 3 received %s" % result_set
 
     storage.kill_storage_mon(storage_proc)
     log.info("height test succeeded.")
@@ -199,12 +198,12 @@ def main(args):
     # UDF not implemented
     # test_count(args.platform)
     test_get_service_name(args.platform)
-    #test_get_service_name(args.platform, True)
+    test_get_service_name(args.platform, True)
     test_height(args.platform)
-    #test_height(args.platform, True)
+    test_height(args.platform, True)
     # Bug in serialization of data
     # test_request_size(args.platform)
-    # test_height_avg(args.platform)
+    test_height_avg(args.platform)
 
 
 if __name__ == '__main__':
