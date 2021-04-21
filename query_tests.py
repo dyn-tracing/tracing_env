@@ -15,7 +15,7 @@ COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/snicket")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
-AGGR_FILTER_DIR = COMPILER_DIR.joinpath("aggr_filter_envoy");
+AGGR_FILTER_DIR = COMPILER_DIR.joinpath("aggregation_filter_envoy");
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def bootstrap(distributed=False):
     assert result == util.EXIT_SUCCESS
     log.info("Refresh the filters")
     result = kube_env.refresh_filter(filter_dir)
-    result = kube_env.refresh_filter(AGGR_FILTER_DIR, aggregation=True)
+    result = kube_env.refresh_filter(AGGR_FILTER_DIR)
     # sleep a little, so things initialize better
     log.info("Sleeping for 60 seconds")
     time.sleep(60)
@@ -198,13 +198,13 @@ def main(args):
     # TODO: Commented queries are not working yet
     # UDF not implemented
     # test_count(args.platform)
-    #test_get_service_name(args.platform)
+    test_get_service_name(args.platform)
     #test_get_service_name(args.platform, True)
-    #test_height(args.platform)
+    test_height(args.platform)
     #test_height(args.platform, True)
     # Bug in serialization of data
     # test_request_size(args.platform)
-    test_height_avg(args.platform)
+    # test_height_avg(args.platform)
 
 
 if __name__ == '__main__':

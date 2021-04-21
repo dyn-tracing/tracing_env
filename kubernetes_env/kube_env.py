@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.2")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.3")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
@@ -258,8 +258,10 @@ def setup_bookinfo_deployment(platform, multizonal):
 def build_filter(filter_dir):
     # Bazel is obnoxious, need to explicitly change dirs
     log.info("Building filter...")
-    cmd = f"cargo --manifest-path {filter_dir} +nightly build "
-    cmd += "--target=wasm32-unknown-unknown --release "
+    cmd = f"cd {filter_dir}; "
+    cmd += "cargo +nightly build --target=wasm32-unknown-unknown --release "
+    #cmd = f"cargo +nightly build "
+    #cmd += "--target=wasm32-unknown-unknown --release "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
