@@ -20,8 +20,10 @@ YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
-DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/distributed_filter_envoy")
-AGGREGATION_FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/aggregation_filter_envoy")
+DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath(
+    "../tracing_compiler/distributed_filter_envoy")
+AGGREGATION_FILTER_DIR = FILE_DIR.joinpath(
+    "../tracing_compiler/aggregation_filter_envoy")
 CM_FILTER_NAME = "rs-filter"
 # the kubernetes python API sucks, but keep this for later
 
@@ -240,13 +242,13 @@ def start_fortio(gateway_url):
 
 def setup_bookinfo_deployment(platform, multizonal):
     start_kubernetes(platform, multizonal)
+    cmd = " kubectl create namespace storage "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
         return result
-    #cmd = " kubectl create namespace storage "
-    #result = util.exec_process(cmd)
-    #if result != util.EXIT_SUCCESS:
-    #    return result
     result = deploy_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
@@ -256,8 +258,8 @@ def setup_bookinfo_deployment(platform, multizonal):
 def build_filter(filter_dir):
     # Bazel is obnoxious, need to explicitly change dirs
     log.info("Building filter...")
-    cmd = f"cd {filter_dir}; "
-    cmd += "cargo +nightly build --target=wasm32-unknown-unknown --release "
+    cmd = f"cargo --manifest-path {filter_dir} +nightly build "
+    cmd += "--target=wasm32-unknown-unknown --release "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -265,24 +267,20 @@ def build_filter(filter_dir):
     return result
 
 
-def undeploy_filter(aggregation=False):
+def undeploy_filter():
     # delete the config map
-    cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    if aggregation:
-        cmd += f"-n storage"
+    cmd = f"kubectl -n default delete configmap {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map.")
-    if aggregation:
-        cmd = f"kubectl delete -f {YAML_DIR}/storage_filter.yaml "
-        result = util.exec_process(cmd, allow_failures=True)
-        if result != util.EXIT_SUCCESS:
-            log.warning("Failed to delete the filter.")
-    else:
-        cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
-        result = util.exec_process(cmd, allow_failures=True)
-        if result != util.EXIT_SUCCESS:
-            log.warning("Failed to delete the filter.")
+        log.warning("Failed to delete the config map in default.")
+    cmd = f"kubectl -n storage delete configmap {CM_FILTER_NAME} "
+    result = util.exec_process(cmd, allow_failures=True)
+    if result != util.EXIT_SUCCESS:
+        log.warning("Failed to delete the config map in storage.")
+    cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
+    result = util.exec_process(cmd, allow_failures=True)
+    if result != util.EXIT_SUCCESS:
+        log.warning("Failed to delete the filter.")
     # restore the original bookinfo
     return deploy_bookinfo()
 
@@ -297,14 +295,27 @@ def patch_bookinfo():
         result = util.exec_process(patch_cmd)
         if result != util.EXIT_SUCCESS:
             log.error("Failed to patch %s.", depl)
+    # we also patch storage
+    patch_cmd = "kubectl patch -n storage deployment.apps/storage-upstream "
+    patch_cmd += f"--patch-file {YAML_DIR}/cm_patch.yaml "
+    result = util.exec_process(patch_cmd)
+    if result != util.EXIT_SUCCESS:
+        log.error("Failed to patch storage.")
     return util.EXIT_SUCCESS
 
 
-def update_conf_map(filter_dir, aggregation=False):
+def create_conf_map(filter_dir, namespace="default"):
+    cmd = f"kubectl -n {namespace} create configmap {CM_FILTER_NAME} "
+    cmd += f"--from-file {filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.error("Failed to create config map.")
+    return result
+
+
+def update_conf_map(filter_dir, namespace="default"):
     # delete the config map
-    cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
-    if aggregation:
-        cmd += f"-n storage "
+    cmd = f"kubectl -n {namespace} delete configmap {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map, it does not exist.")
@@ -312,38 +323,35 @@ def update_conf_map(filter_dir, aggregation=False):
         # update the containers with the config map
         result = patch_bookinfo()
     # "refresh" it by recreating the config map
-    cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-    cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/filter.wasm "
-    if aggregation:
-        cmd += f"-n storage "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        log.error("Failed to create config map.")
+    result = create_conf_map(filter_dir, namespace)
     return result
 
 
-def deploy_filter(filter_dir, aggregation=False):
+def deploy_filter(filter_dir):
     # check if the config map already exists
+    # we assume that if the config map does not exist in default
+    # it also does not exist in storage
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
-    if aggregation:
-        cmd += f"-n storage"
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         # create the config map with the filter
-        cmd = f"kubectl create configmap {CM_FILTER_NAME} --from-file "
-        cmd += f"{filter_dir}/target/wasm32-unknown-unknown/release/"
-        cmd += "filter.wasm "
-        if aggregation:
-            cmd += f"-n storage"
-        result = util.exec_process(cmd)
+        result = create_conf_map(filter_dir, "default")
         if result != util.EXIT_SUCCESS:
-            log.error("Failed to create config map.")
+            return result
+        result = create_conf_map(AGGREGATION_FILTER_DIR, "storage")
+        if result != util.EXIT_SUCCESS:
             return result
     else:
         # Config map exists, assume that the deployment is already modded
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
         # delete and recreate the config map
-        update_conf_map(filter_dir, aggregation)
+        result = update_conf_map(filter_dir, "default")
+        if result != util.EXIT_SUCCESS:
+            return result
+        # TODO: Think about a better solution here
+        result = update_conf_map(AGGREGATION_FILTER_DIR, "storage")
+        if result != util.EXIT_SUCCESS:
+            return result
     # update the containers with the config map
     result = patch_bookinfo()
     if result != util.EXIT_SUCCESS:
@@ -352,26 +360,20 @@ def deploy_filter(filter_dir, aggregation=False):
     if result != util.EXIT_SUCCESS:
         return result
     # now activate the filter
-    cmd = f"kubectl apply -f {YAML_DIR}/"
-    if aggregation:
-        cmd += "storage_filter.yaml "
-    else:
-        cmd += "filter.yaml "
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
     result = util.exec_process(cmd)
     return result
 
 
-def refresh_filter(filter_dir, aggregation=False):
+def refresh_filter(filter_dir):
 
     # delete and recreate the config map
-    update_conf_map(filter_dir, aggregation)
+    update_conf_map(filter_dir, "default")
+    # TODO: Think about a better solution here
+    update_conf_map(AGGREGATION_FILTER_DIR, "storage")
 
     # activate the filter
-    cmd = f"kubectl apply -f {YAML_DIR}/"
-    if aggregation:
-        cmd += "storage_filter.yaml "
-    else:
-        cmd += "filter.yaml "
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -380,13 +382,6 @@ def refresh_filter(filter_dir, aggregation=False):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-
-    # if the filter was on storage, activate the filter after
-    if aggregation:
-        cmd = f"kubectl apply -f {YAML_DIR}/storage_filter.yaml -n storage"
-        result = util.exec_process(cmd)
-        if result != util.EXIT_SUCCESS:
-            return result
 
     # also reset storage since we are working with a different filter now
     cmd = "kubectl rollout restart deployment storage-upstream -n=storage "
