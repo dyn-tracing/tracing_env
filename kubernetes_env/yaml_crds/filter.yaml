@@ -72,7 +72,7 @@ spec:
               vm_config:
                 code:
                   local:
-                    filename: /var/local/lib/wasm-filters/filter.wasm
+                    filename: /var/local/lib/wasm-filters/agg_filter.wasm
                 runtime: envoy.wasm.runtime.v8
                 vm_id: my-example
                 allow_precompiled: true

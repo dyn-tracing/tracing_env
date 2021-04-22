@@ -15,7 +15,6 @@ COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 COMPILER_BINARY = COMPILER_DIR.joinpath("target/debug/snicket")
 QUERY_DIR = COMPILER_DIR.joinpath("example_queries")
 UDF_DIR = COMPILER_DIR.joinpath("example_udfs")
-AGGR_FILTER_DIR = COMPILER_DIR.joinpath("aggregation_filter_envoy");
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ def generate_filter(filter_name, udfs, distributed=False):
         cmd += f"-u {UDF_DIR.joinpath(udf)} "
     cmd += "-r productpage-v1 "
     if distributed:
-        cmd += f"-d "
+        cmd += "-d "
         cmd += f"-o {kube_env.DISTRIBUTED_FILTER_DIR}/filter.rs "
     result = util.exec_process(cmd)
     return result
@@ -48,13 +47,13 @@ def generate_filter(filter_name, udfs, distributed=False):
 def bootstrap(distributed=False):
     # build the filter
     log.info("Building the filters")
-    filter_dir = kube_env.FILTER_DIR
     if distributed:
         filter_dir = kube_env.DISTRIBUTED_FILTER_DIR
+    else:
+        filter_dir = kube_env.FILTER_DIR
+
 
     result = kube_env.build_filter(filter_dir)
-    assert result == util.EXIT_SUCCESS
-    result = kube_env.build_filter(AGGR_FILTER_DIR)
     assert result == util.EXIT_SUCCESS
     log.info("Refresh the filters")
     result = kube_env.refresh_filter(filter_dir)
@@ -125,9 +124,11 @@ def test_height(platform="MK", distributed=False):
     log.info("height test succeeded.")
     return util.EXIT_SUCCESS
 
+
 def test_height_avg(platform="MK", distributed=False):
     # generate the filter code
-    result = generate_filter("height.cql", ["height.rs", "avg.rs"], distributed)
+    result = generate_filter("height.cql", ["height.rs", "avg.rs"],
+                             distributed)
     assert result == util.EXIT_SUCCESS
 
     # bootstrap the filter
@@ -146,7 +147,6 @@ def test_height_avg(platform="MK", distributed=False):
     return util.EXIT_SUCCESS
 
 
-
 def test_get_service_name(platform="MK", distributed=False):
     # generate the filter code
     result = generate_filter("get_service_name.cql", [], distributed)
@@ -155,7 +155,6 @@ def test_get_service_name(platform="MK", distributed=False):
     # bootstrap the filter
     storage_proc = bootstrap(distributed)
 
-    
     # first request
     log.info("Sending request #1")
     requests.send_request(platform)
