@@ -38,8 +38,7 @@ def generate_filter(filter_name, udfs, distributed=False):
         cmd += f"-u {UDF_DIR.joinpath(udf)} "
     cmd += "-r productpage-v1 "
     if distributed:
-        print("hello\n\n\n\n")
-        cmd += f"-d "
+        cmd += "-d "
         cmd += f"-o {kube_env.DISTRIBUTED_FILTER_DIR}/filter.rs "
     result = util.exec_process(cmd)
     return result
@@ -47,14 +46,16 @@ def generate_filter(filter_name, udfs, distributed=False):
 
 def bootstrap(distributed=False):
     # build the filter
-    log.info("Building the filter")
-    filter_dir = kube_env.FILTER_DIR
+    log.info("Building the filters")
     if distributed:
         filter_dir = kube_env.DISTRIBUTED_FILTER_DIR
+    else:
+        filter_dir = kube_env.FILTER_DIR
+
 
     result = kube_env.build_filter(filter_dir)
     assert result == util.EXIT_SUCCESS
-    log.info("Refresh the filter")
+    log.info("Refresh the filters")
     result = kube_env.refresh_filter(filter_dir)
     # sleep a little, so things initialize better
     log.info("Sleeping for 60 seconds")
@@ -124,6 +125,28 @@ def test_height(platform="MK", distributed=False):
     return util.EXIT_SUCCESS
 
 
+def test_height_avg(platform="MK", distributed=False):
+    # generate the filter code
+    result = generate_filter("height.cql", ["height.rs", "avg.rs"],
+                             distributed)
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap(distributed)
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert "2" in result_set, "expected 3 received %s" % result_set
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("height test succeeded.")
+    return util.EXIT_SUCCESS
+
+
 def test_get_service_name(platform="MK", distributed=False):
     # generate the filter code
     result = generate_filter("get_service_name.cql", [], distributed)
@@ -132,7 +155,6 @@ def test_get_service_name(platform="MK", distributed=False):
     # bootstrap the filter
     storage_proc = bootstrap(distributed)
 
-    
     # first request
     log.info("Sending request #1")
     requests.send_request(platform)
@@ -180,6 +202,7 @@ def main(args):
     test_height(args.platform, True)
     # Bug in serialization of data
     # test_request_size(args.platform)
+    test_height_avg(args.platform)
 
 
 if __name__ == '__main__':
