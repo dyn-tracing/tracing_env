@@ -60,14 +60,19 @@ def inject_istio():
     return result
 
 
-def deploy_addons():
+def deploy_addons(addons):
     apply_cmd = "kubectl apply -f "
     url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
-    cmd = f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml && "
-    cmd += f"{apply_cmd} {url}/samples/addons/jaeger.yaml && "
-    cmd += f"{apply_cmd} {url}/samples/addons/grafana.yaml "
-    # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml || "
-    # cmd += f"{apply_cmd} {url}/samples/addons/kiali.yaml"
+    cmd = ""
+    if "kiali" in addons:
+        addons.append("kiali")
+    for (idx, addon) in enumerate(addons):
+        if addon == "prometheus-mod":
+            cmd += f"{apply_cmd} {YAML_DIR}/prometheus-mod.yaml"
+        else:
+            cmd += f"{apply_cmd} {url}/samples/addons/{addon}.yaml"
+        if idx < len(addons) - 1:
+            cmd += " && "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
@@ -81,6 +86,20 @@ def deploy_addons():
         _ = util.exec_process(wait_cmd)
     log.info("Addons are ready.")
     return util.EXIT_SUCCESS
+
+
+def remove_addons(addons):
+    remove_cmd = "kubectl delete -f"
+    url = "https://raw.githubusercontent.com/istio/istio/release-1.9"
+    cmd = ""
+    for (idx, addon) in enumerate(addons):
+        if addon == "prometheus-mod":
+            cmd += f"{remove_cmd} {YAML_DIR}/prometheus-mod.yaml --ignore-not-found=true"
+        else:
+            cmd += f"{remove_cmd} {url}/samples/addons/{addon}.yaml --ignore-not-found=true"
+        if idx < len(addons) - 1:
+            cmd += " && "
+    return util.exec_process(cmd)
 
 
 def bookinfo_wait():
@@ -118,7 +137,7 @@ def deploy_bookinfo():
 
 
 def remove_bookinfo():
-    # launch bookinfo
+    # remove bookinfo
     samples_dir = f"{ISTIO_DIR}/samples"
     bookinfo_dir = f"{samples_dir}/bookinfo"
     cmd = f"{bookinfo_dir}/platform/kube/cleanup.sh &&"
@@ -258,7 +277,8 @@ def build_filter(filter_dir):
     log.info("Building filter...")
     cmd = "cargo +nightly build -Z unstable-options "
     cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins --target-dir {filter_dir}/target "
+    cmd += f"--out-dir {filter_dir}/wasm_bins "
+    cmd += f"--target-dir {filter_dir}/target "
     cmd += f"--manifest-path {filter_dir}/Cargo.toml "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
@@ -266,7 +286,8 @@ def build_filter(filter_dir):
     # Also build the aggregation filter
     cmd = "cargo +nightly build -Z unstable-options "
     cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins --target-dir {filter_dir}/target "
+    cmd += f"--out-dir {filter_dir}/wasm_bins "
+    cmd += f"--target-dir {filter_dir}/target "
     cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
@@ -277,14 +298,7 @@ def build_filter(filter_dir):
 
 def undeploy_filter():
     # delete the config map
-    cmd = f"kubectl -n default delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map in default.")
-    cmd = f"kubectl -n storage delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map in storage.")
+    delete_config_map()
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
@@ -309,40 +323,45 @@ def patch_bookinfo():
     result = util.exec_process(patch_cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to patch storage.")
-    return util.EXIT_SUCCESS
-
-
-def create_conf_map(filter_file, namespace="default"):
-    cmd = f"kubectl -n {namespace} create configmap {CM_FILTER_NAME} "
-    cmd += f"--from-file {filter_file} "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        log.error("Failed to create config map.")
     return result
 
 
-def update_conf_map(filter_dir):
-    # delete the config map
+def create_conf_map(filter_dir):
+    cmd = f"kubectl create configmap {CM_FILTER_NAME} "
+    cmd += f"--from-file {filter_dir}/wasm_bins/filter.wasm "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.error("Failed to create config map.")
+        return result
+
+    # also refresh the aggregation filter
+    cmd = f"kubectl -n storage create configmap {CM_FILTER_NAME} "
+    cmd += f"--from-file {filter_dir}/wasm_bins/agg_filter.wasm "
+    return util.exec_process(cmd)
+
+
+def delete_config_map():
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map, it does not exist.")
-        log.warning("Assuming a patch is required.")
-        # update the containers with the config map
-        result = patch_bookinfo()
-    # "refresh" it by recreating the config map
-    result = create_conf_map(f"{filter_dir}/wasm_bins/filter.wasm", "default")
-    if result != util.EXIT_SUCCESS:
-        return result
     # repeat this process for stage
     cmd = f"kubectl delete -n storage configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
+    return util.exec_process(cmd, allow_failures=True)
+
+
+def update_conf_map(filter_dir):
+    # delete the config map
+    result = delete_config_map()
     if result != util.EXIT_SUCCESS:
-        return result
-    # also refresh the aggregation filter
-    result = create_conf_map(f"{filter_dir}/wasm_bins/agg_filter.wasm",
-                             "storage")
-    return result
+        log.warning("Assuming a patch is required.")
+        result = create_conf_map(filter_dir)
+        if result != util.EXIT_SUCCESS:
+            return result
+        # update the containers with the config map
+        return patch_bookinfo()
+    # "refresh" the filter by recreating the config map
+    return create_conf_map(filter_dir)
 
 
 def deploy_filter(filter_dir):
@@ -351,33 +370,22 @@ def deploy_filter(filter_dir):
     # it also does not exist in storage
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        # create the config map with the filter
-        result = create_conf_map(f"{filter_dir}/wasm_bins/filter.wasm",
-                                 "default")
-        if result != util.EXIT_SUCCESS:
-            return result
-        # also create the aggregation filter
-        result = create_conf_map(f"{filter_dir}/wasm_bins/agg_filter.wasm",
-                                 "storage")
-    else:
+    if result == util.EXIT_SUCCESS:
         # Config map exists, assume that the deployment is already modded
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
         # delete and recreate the config map
-        result = update_conf_map(filter_dir)
-        if result != util.EXIT_SUCCESS:
-            return result
+        return update_conf_map(filter_dir)
+    # create the config map with the filter
+    result = create_conf_map(filter_dir)
+    if result != util.EXIT_SUCCESS:
+        return result
     # update the containers with the config map
     result = patch_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    result = bookinfo_wait()
-    if result != util.EXIT_SUCCESS:
-        return result
     # now activate the filter
     cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
-    result = util.exec_process(cmd)
-    return result
+    return util.exec_process(cmd)
 
 
 def refresh_filter(filter_dir):
@@ -401,7 +409,6 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-
     return bookinfo_wait()
 
 
@@ -426,8 +433,10 @@ def main(args):
         return deploy_bookinfo()
     if args.remove_bookinfo:
         return remove_bookinfo()
-    if args.addons:
-        return deploy_addons()
+    if args.deploy_addons:
+        return deploy_addons(args.deploy_addons)
+    if args.remove_addons:
+        return remove_addons(args.remove_addons)
     if args.clean:
         return stop_kubernetes(args.platform)
     if args.burst:
@@ -515,11 +524,20 @@ if __name__ == '__main__':
                         action="store_true",
                         help="Burst with HTTP requests to cause"
                         " congestion and queue buildup.")
-    parser.add_argument("-ea",
-                        "--enable-addons",
-                        dest="addons",
-                        default=False,
-                        help="deploy addons to the cluster")
+    parser.add_argument("-da",
+                        "--deploy-addons",
+                        dest="deploy_addons",
+                        nargs="+",
+                        type=str,
+                        default=[],
+                        help="Deploy addons. ")
+    parser.add_argument("-ra",
+                        "--remove-addons",
+                        dest="remove_addons",
+                        nargs="+",
+                        type=str,
+                        default=[],
+                        help="Remove addons. ")
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
