@@ -277,7 +277,8 @@ def build_filter(filter_dir):
     log.info("Building filter...")
     cmd = "cargo +nightly build -Z unstable-options "
     cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins --target-dir {filter_dir}/target "
+    cmd += f"--out-dir {filter_dir}/wasm_bins "
+    cmd += f"--target-dir {filter_dir}/target "
     cmd += f"--manifest-path {filter_dir}/Cargo.toml "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
@@ -285,7 +286,8 @@ def build_filter(filter_dir):
     # Also build the aggregation filter
     cmd = "cargo +nightly build -Z unstable-options "
     cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins --target-dir {filter_dir}/target "
+    cmd += f"--out-dir {filter_dir}/wasm_bins "
+    cmd += f"--target-dir {filter_dir}/target "
     cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
@@ -296,14 +298,7 @@ def build_filter(filter_dir):
 
 def undeploy_filter():
     # delete the config map
-    cmd = f"kubectl -n default delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map in default.")
-    cmd = f"kubectl -n storage delete configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        log.warning("Failed to delete the config map in storage.")
+    delete_config_map()
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
@@ -328,40 +323,45 @@ def patch_bookinfo():
     result = util.exec_process(patch_cmd)
     if result != util.EXIT_SUCCESS:
         log.error("Failed to patch storage.")
-    return util.EXIT_SUCCESS
-
-
-def create_conf_map(filter_file, namespace="default"):
-    cmd = f"kubectl -n {namespace} create configmap {CM_FILTER_NAME} "
-    cmd += f"--from-file {filter_file} "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        log.error("Failed to create config map.")
     return result
 
 
-def update_conf_map(filter_dir):
-    # delete the config map
+def create_conf_map(filter_dir):
+    cmd = f"kubectl create configmap {CM_FILTER_NAME} "
+    cmd += f"--from-file {filter_dir}/wasm_bins/filter.wasm "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        log.error("Failed to create config map.")
+        return result
+
+    # also refresh the aggregation filter
+    cmd = f"kubectl -n storage create configmap {CM_FILTER_NAME} "
+    cmd += f"--from-file {filter_dir}/wasm_bins/agg_filter.wasm "
+    return util.exec_process(cmd)
+
+
+def delete_config_map():
     cmd = f"kubectl delete configmap {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the config map, it does not exist.")
-        log.warning("Assuming a patch is required.")
-        # update the containers with the config map
-        result = patch_bookinfo()
-    # "refresh" it by recreating the config map
-    result = create_conf_map(f"{filter_dir}/wasm_bins/filter.wasm", "default")
-    if result != util.EXIT_SUCCESS:
-        return result
     # repeat this process for stage
     cmd = f"kubectl delete -n storage configmap {CM_FILTER_NAME} "
-    result = util.exec_process(cmd, allow_failures=True)
+    return util.exec_process(cmd, allow_failures=True)
+
+
+def update_conf_map(filter_dir):
+    # delete the config map
+    result = delete_config_map()
     if result != util.EXIT_SUCCESS:
-        return result
-    # also refresh the aggregation filter
-    result = create_conf_map(f"{filter_dir}/wasm_bins/agg_filter.wasm",
-                             "storage")
-    return result
+        log.warning("Assuming a patch is required.")
+        result = create_conf_map(filter_dir)
+        if result != util.EXIT_SUCCESS:
+            return result
+        # update the containers with the config map
+        return patch_bookinfo()
+    # "refresh" the filter by recreating the config map
+    return create_conf_map(filter_dir)
 
 
 def deploy_filter(filter_dir):
@@ -370,33 +370,22 @@ def deploy_filter(filter_dir):
     # it also does not exist in storage
     cmd = f"kubectl get configmaps {CM_FILTER_NAME} "
     result = util.exec_process(cmd, allow_failures=True)
-    if result != util.EXIT_SUCCESS:
-        # create the config map with the filter
-        result = create_conf_map(f"{filter_dir}/wasm_bins/filter.wasm",
-                                 "default")
-        if result != util.EXIT_SUCCESS:
-            return result
-        # also create the aggregation filter
-        result = create_conf_map(f"{filter_dir}/wasm_bins/agg_filter.wasm",
-                                 "storage")
-    else:
+    if result == util.EXIT_SUCCESS:
         # Config map exists, assume that the deployment is already modded
         log.warning("Config map %s already exists!", CM_FILTER_NAME)
         # delete and recreate the config map
-        result = update_conf_map(filter_dir)
-        if result != util.EXIT_SUCCESS:
-            return result
+        return update_conf_map(filter_dir)
+    # create the config map with the filter
+    result = create_conf_map(filter_dir)
+    if result != util.EXIT_SUCCESS:
+        return result
     # update the containers with the config map
     result = patch_bookinfo()
     if result != util.EXIT_SUCCESS:
         return result
-    result = bookinfo_wait()
-    if result != util.EXIT_SUCCESS:
-        return result
     # now activate the filter
     cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
-    result = util.exec_process(cmd)
-    return result
+    return util.exec_process(cmd)
 
 
 def refresh_filter(filter_dir):
@@ -420,7 +409,6 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-
     return bookinfo_wait()
 
 
