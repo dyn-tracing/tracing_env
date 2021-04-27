@@ -2,10 +2,10 @@ use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
 
-pub fn generate_filter_code(                                                
-    compiler_dir: &Path,                                                    
-    test_dir: &Path,                                                        
-    query_name: &str,                                                       
+pub fn generate_filter_code(
+    compiler_dir: &Path,
+    test_dir: &Path,
+    query_name: &str,
     udf_names: Vec<&str>,                                                   
     distributed: bool,                                                      
 ) {                                                                         
@@ -65,6 +65,6 @@ pub fn compile_filter_dir(filter_test_dir: &Path) {
     let output = cmd.output().expect("failed to compile directory");        
     io::stdout().write_all(&output.stdout).unwrap();                        
     io::stdout().write_all(&output.stderr).unwrap();                        
-    assert!(output.status.success());                                       
+    assert!(output.status.success());
 } 
 

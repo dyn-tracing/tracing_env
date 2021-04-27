@@ -205,6 +205,23 @@ mod tests {
     }
 
     #[bench]
+    fn bench_empty_filter(bencher: &mut Bencher) {
+        let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let filter_test_dir = file_dir.join("empty_filter");
+        compile_filter_dir(&filter_test_dir);
+        let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
+
+        bencher.iter( || {
+            let mut bookinfo_sim =
+                example_envs::bookinfo::new_bookinfo(0, None, filter_plugin.to_str(), None);
+            bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
+            for tick in 0..7 {
+                bookinfo_sim.tick(tick);
+            }
+        });
+    }
+
+    #[bench]
     fn bench_service_name(bencher: &mut Bencher) {
         bench(
             "service_name_bench",
