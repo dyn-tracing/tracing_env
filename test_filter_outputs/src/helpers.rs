@@ -1,8 +1,6 @@
-#![feature(command_access)]
 use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
-const ROOT_NAME: &str = "productpage-v1";
 
 pub fn generate_filter_code(                                                
     compiler_dir: &Path,                                                    
@@ -11,6 +9,7 @@ pub fn generate_filter_code(
     udf_names: Vec<&str>,                                                   
     distributed: bool,                                                      
 ) {                                                                         
+    const ROOT_NAME: &str = "productpage-v1";
     let compile_cmd = compiler_dir.join("target/debug/snicket");            
     assert!(compile_cmd.exists());                                          
                                                                             

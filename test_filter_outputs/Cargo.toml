@@ -12,8 +12,8 @@ example_envs = { path = "../tracing_sim/example_envs" }
 rpc_lib = { path = "../tracing_sim/libs/rpc_lib" }
 test-case = "*"
 serial_test = "*"
+csv = "1.1"
 
-
-[lib]                                                                           
-crate-type = ["lib"]                                                            
-path = "src/lib.rs" 
+[[bin]]
+name = "test_filter_outputs"
+path = "src/main.rs"
