@@ -193,6 +193,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore]
     fn bench_baseline(bencher: &mut Bencher) {
         let mut bookinfo_sim =
             example_envs::bookinfo::new_bookinfo(0, None, None, None);
@@ -205,6 +206,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore]
     fn bench_empty_filter(bencher: &mut Bencher) {
         let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let filter_test_dir = file_dir.join("empty_filter");
@@ -222,6 +224,7 @@ mod tests {
     }
 
     #[bench]
+    #[ignore]
     fn bench_service_name(bencher: &mut Bencher) {
         bench(
             "service_name_bench",
@@ -234,6 +237,7 @@ mod tests {
 
     }
     #[bench]
+    #[ignore]
     fn bench_service_name_distributed(bencher: &mut Bencher) {
         bench(
             "service_name_distributed_bench",
