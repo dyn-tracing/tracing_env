@@ -1,3 +1,4 @@
+#![feature(test)]
 mod helpers;
 mod integration_tests;
 use test_filter_outputs::network_costs::run_query;
