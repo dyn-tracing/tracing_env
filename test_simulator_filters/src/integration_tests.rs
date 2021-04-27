@@ -39,16 +39,30 @@ mod tests {
         None , true ; "height_distributed_test"
     )]
     #[test_case(
+        "request_size",
+        "request_size.cql",
+        vec![],
+        "1\n",
+        Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_test"
+    )]
+    #[test_case(
+        "request_size_distributed",
+        "request_size.cql",
+        vec![],
+        "1\n",
+        Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_distributed_test"
+    )]
+    #[test_case(
         "request_size_avg",
         "request_size_avg.cql",
-        vec![],
+        vec!["avg.rs"],
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_test"
     )]
     #[test_case(
         "request_size_avg_distributed",
         "request_size_avg.cql",
-        vec![],
+        vec!["avg.rs"],
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_distributed_test"
     )]
@@ -56,14 +70,14 @@ mod tests {
     #[test_case(
         "request_size_avg_trace_attr",
         "request_size_avg_trace_attr.cql",
-        vec![],
+        vec!["avg.rs"],
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), false ; "request_size_avg_trace_attr_test"
     )]
     #[test_case(
         "request_size_avg_trace_attr_distributed",
         "request_size_avg_trace_attr.cql",
-        vec![],
+        vec!["avg.rs"],
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
     )]
