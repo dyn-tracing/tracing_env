@@ -207,7 +207,7 @@ mod tests {
     #[bench]
     fn bench_service_name(bencher: &mut Bencher) {
         bench(
-            "service_name",
+            "service_name_bench",
             "get_service_name.cql",
             vec![],
             None,
@@ -219,7 +219,7 @@ mod tests {
     #[bench]
     fn bench_service_name_distributed(bencher: &mut Bencher) {
         bench(
-            "service_name",
+            "service_name_distributed_bench",
             "get_service_name.cql",
             vec![],
             None,
