@@ -1,19 +1,12 @@
-#![feature(command_access)]
-#[cfg(test)]
 
-mod tests {
-
-    use rpc_lib::rpc::Rpc;
-    use std::env;
-    use std::fs;
+/*
+mod helpers {
     use std::io::{self, Write};
     use std::path::Path;
     use std::process::Command;
-    use test_case::test_case;
     const ROOT_NAME: &str = "productpage-v1";
-    const STORAGE_NAME: &str = "storage";
 
-    fn generate_filter_code(
+    pub fn generate_filter_code(
         compiler_dir: &Path,
         test_dir: &Path,
         query_name: &str,
@@ -66,7 +59,7 @@ mod tests {
         assert!(output.status.success());
     }
 
-    fn compile_filter_dir(filter_test_dir: &Path) {
+    pub fn compile_filter_dir(filter_test_dir: &Path) {
         let manifest_path = filter_test_dir.join("Cargo.toml");
         print!("manifest path is {:?}\n", manifest_path);
         let args = ["build", "--manifest-path", manifest_path.to_str().unwrap()];
@@ -77,6 +70,22 @@ mod tests {
         io::stdout().write_all(&output.stderr).unwrap();
         assert!(output.status.success());
     }
+
+}
+*/
+
+#[cfg(test)]
+mod tests {
+    //use test_filter_outputs::helpers::helpers::generate_filter_code;
+    //use test_filter_outputs::helpers::helpers::compile_filter_dir;
+    use crate::helpers::generate_filter_code;
+    use crate::helpers::compile_filter_dir;
+    use super::*;
+    use test_case::test_case;
+    use rpc_lib::rpc::Rpc;
+    const STORAGE_NAME: &str = "storage";
+    use std::path::Path;
+    use std::fs;
 
     #[test_case(
         "service_name",
