@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
     extern crate test; // necessary for benchmarking
-    use crate::helpers::generate_filter_code;
     use crate::helpers::compile_filter_dir;
-    use test_case::test_case;
+    use crate::helpers::generate_filter_code;
     use rpc_lib::rpc::Rpc;
-    use std::path::Path;
     use std::fs;
+    use std::path::Path;
     use test::Bencher;
+    use test_case::test_case;
     const STORAGE_NAME: &str = "storage";
 
     #[test_case(
@@ -39,6 +39,20 @@ mod tests {
         None , true ; "height_distributed_test"
     )]
     #[test_case(
+        "height_avg",
+        "height_avg.cql",
+        vec!["height.rs", "avg.rs"],
+        "2\n",
+        None , false ; "height_avg_test"
+    )]
+    #[test_case(
+        "height_avg_distributed",
+        "height_avg.cql",
+        vec!["height.rs", "avg.rs"],
+        "2\n",
+        None , true ; "height_avg_distributed_test"
+    )]
+    #[test_case(
         "request_size",
         "request_size.cql",
         vec![],
@@ -66,7 +80,6 @@ mod tests {
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_distributed_test"
     )]
-
     #[test_case(
         "request_size_avg_trace_attr",
         "request_size_avg_trace_attr.cql",
@@ -80,13 +93,6 @@ mod tests {
         vec!["avg.rs"],
         "1\navg: 1\n",
         Some("../tracing_sim/target/debug/libaggregation_example"), true ; "request_size_avg_trace_attr_distributed_test"
-    )]
-    #[test_case(
-        "return_trace",
-        "return_trace.cql",
-        vec![],
-        "trace_graph",
-        None, false ; "return_trace_test"
     )]
 
     fn test_query(
@@ -124,7 +130,7 @@ mod tests {
             filter_test_dir.as_path(),
             query_name,
             udfs,
-            distributed
+            distributed,
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
@@ -136,7 +142,13 @@ mod tests {
         for tick in 0..7 {
             bookinfo_sim.tick(tick);
         }
-        assert!(bookinfo_sim.query_storage(STORAGE_NAME).contains(expected_output), "output was {:?}", bookinfo_sim.query_storage(STORAGE_NAME));
+        assert!(
+            bookinfo_sim
+                .query_storage(STORAGE_NAME)
+                .contains(expected_output),
+            "output was {:?}",
+            bookinfo_sim.query_storage(STORAGE_NAME)
+        );
 
         // 5. clean up the temporary filter directory
         match fs::remove_dir_all(filter_test_dir) {
@@ -182,7 +194,7 @@ mod tests {
             filter_test_dir.as_path(),
             query_name,
             udfs,
-            distributed
+            distributed,
         );
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
@@ -190,7 +202,7 @@ mod tests {
         // 4. Create the simulator and test the output
         let mut bookinfo_sim =
             example_envs::bookinfo::new_bookinfo(0, None, filter_plugin.to_str(), aggregation_id);
-        bencher.iter( || {
+        bencher.iter(|| {
             bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
             for tick in 0..7 {
                 bookinfo_sim.tick(tick);
@@ -209,9 +221,8 @@ mod tests {
     #[bench]
     #[ignore]
     fn bench_baseline(bencher: &mut Bencher) {
-        let mut bookinfo_sim =
-            example_envs::bookinfo::new_bookinfo(0, None, None, None);
-        bencher.iter( || {
+        let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(0, None, None, None);
+        bencher.iter(|| {
             bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
             for tick in 0..7 {
                 bookinfo_sim.tick(tick);
@@ -227,7 +238,7 @@ mod tests {
         compile_filter_dir(&filter_test_dir);
         let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
 
-        bencher.iter( || {
+        bencher.iter(|| {
             let mut bookinfo_sim =
                 example_envs::bookinfo::new_bookinfo(0, None, filter_plugin.to_str(), None);
             bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
@@ -246,9 +257,8 @@ mod tests {
             vec![],
             None,
             false,
-            bencher
+            bencher,
         );
-
     }
     #[bench]
     #[ignore]
@@ -259,8 +269,7 @@ mod tests {
             vec![],
             None,
             true,
-            bencher
+            bencher,
         );
-
     }
 }

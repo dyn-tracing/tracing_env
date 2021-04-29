@@ -1,12 +1,11 @@
-use std::fs::File;
-use std::fs;
-use std::path::Path;
-use rpc_lib::rpc::Rpc;
-use std::io::prelude::*;
 use crate::helpers::compile_filter_dir;
 use crate::helpers::generate_filter_code;
+use rpc_lib::rpc::Rpc;
+use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
 const STORAGE_NAME: &str = "storage";
-
 
 fn read_and_delete_csv(file_name: String, test_name: &str) {
     let mut file = File::open(file_name.clone()).unwrap();
@@ -20,7 +19,9 @@ fn read_and_delete_csv(file_name: String, test_name: &str) {
             Ok(r) => {
                 total += r[1].parse::<i64>().unwrap();
             }
-            Err(e) => { print!("error: {0}", e); }
+            Err(e) => {
+                print!("error: {0}", e);
+            }
         }
     }
     println!("Test {0} resulted in {1} network cost", test_name, total);
@@ -33,16 +34,13 @@ fn read_and_delete_csv(file_name: String, test_name: &str) {
     }
 }
 
-
-
-
 pub fn run_query(
     query_id: &str,
     query_name: &str,
     udfs: Vec<&str>,
     expected_output: &str,
     aggregation_id: Option<&str>,
-    distributed: bool
+    distributed: bool,
 ) {
     // 1.Create the necessary directories
     let file_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -72,14 +70,18 @@ pub fn run_query(
         filter_test_dir.as_path(),
         query_name,
         udfs,
-        distributed
+        distributed,
     );
     compile_filter_dir(&filter_test_dir);
     let filter_plugin = filter_test_dir.join("target/debug/librust_filter");
 
     // 4. Create the simulator and test the output
-    let mut bookinfo_sim =
-        example_envs::bookinfo::new_bookinfo(0, Some(result_file.clone()), filter_plugin.to_str(), aggregation_id);
+    let mut bookinfo_sim = example_envs::bookinfo::new_bookinfo(
+        0,
+        Some(result_file.clone()),
+        filter_plugin.to_str(),
+        aggregation_id,
+    );
     bookinfo_sim.insert_rpc("gateway", Rpc::new("0"));
     for tick in 0..7 {
         bookinfo_sim.tick(tick);
@@ -96,6 +98,4 @@ pub fn run_query(
 
     // 6. Find and print the results and delete file
     read_and_delete_csv(result_file, query_id);
-
-    
 }
