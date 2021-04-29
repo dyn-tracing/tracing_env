@@ -107,7 +107,7 @@ def do_burst(url, platform, threads, qps, run_time):
             res = requests.get(url, timeout=1)
             ms = res.elapsed.total_seconds() * 1000
             return ms
-        except requests.exceptions.ReadTimeout:
+        except requests.exceptions.Timeout:
             pass
 
     log.info("Starting burst...")
@@ -162,7 +162,7 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
         warmup_res = do_burst(product_url, platform, threads, 10, 1)
         if not warmup_res:
             log.error("No data was collected during warm up")
-            return uitl.EXIT_FAILURE
+            return util.EXIT_FAILURE
         if custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(product_url, platform, threads, qps,
