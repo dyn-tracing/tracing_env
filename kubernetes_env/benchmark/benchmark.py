@@ -76,8 +76,11 @@ def plot(dfs, filters, title, fortio=True):
         plt.legend(labels=filters)
         plt.title(f"Fortio: {title}")
     else:
-        plot = sns.displot(dfs, kind="ecdf")
-        plot.set(title=plot_name)
+        fig, (ax1,ax2) = plt.subplots(1,2, figsize=(18,6))
+        dplot = sns.ecdfplot(dfs, ax= ax1)
+        dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
+        hplot = sns.histplot(dfs, ax= ax2)
+        hplot.set(xlabel="Latency (ms)", ylabel="Count")     
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
@@ -155,14 +158,12 @@ def start_benchmark(custom, filter_dirs, platform, threads, qps, run_time):
             return util.EXIT_FAILURE
 
         # wait for kubernetes set up to finish
-        time.sleep(10)
+        time.sleep(180)
         fname = Path(fd).name
         filters.append(fname)
         log.info("Warming up...")
-        warmup_res = do_burst(product_url, platform, threads, 10, 1)
-        if not warmup_res:
-            log.error("No data was collected during warm up")
-            return util.EXIT_FAILURE
+        for i in range(10):
+            requests.get(product_url)
         if custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(product_url, platform, threads, qps,
