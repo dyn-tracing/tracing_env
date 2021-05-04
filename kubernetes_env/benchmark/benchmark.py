@@ -107,7 +107,7 @@ def do_burst(url, platform, threads, qps, run_time):
     def send_request(_):
         try:
             # What should timeout be?
-            res = requests.get(url, timeout=1)
+            res = requests.get(url, timeout=3)
             ms = res.elapsed.total_seconds() * 1000
             return ms
         except requests.exceptions.Timeout:
@@ -120,7 +120,7 @@ def do_burst(url, platform, threads, qps, run_time):
         end = current + timedelta(seconds=run_time)
         while current < end:
             results = list(
-                p.map(send_request, range(qps), chunksize=qps // threads))
+                p.map(send_request, range(qps))
             current += timedelta(seconds=1)
             output += results
     return output
