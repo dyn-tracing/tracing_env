@@ -18,6 +18,7 @@ ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.1")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
+PROJECT_ID = "dynamic-tracing"
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
 DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath(
@@ -102,14 +103,14 @@ def remove_addons(addons):
     return util.exec_process(cmd)
 
 
-def bookinfo_wait():
+def application_wait():
     cmd = "kubectl get deploy -o name"
     deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
     deployments = deployments.split("\n")
     for depl in deployments:
         wait_cmd = f"kubectl rollout status {depl} -w --timeout=180s"
         _ = util.exec_process(wait_cmd)
-    log.info("Bookinfo is ready.")
+    log.info("Application is ready.")
     return util.EXIT_SUCCESS
 
 
@@ -132,9 +133,30 @@ def deploy_bookinfo():
     cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
-    bookinfo_wait()
+    application_wait()
     return result
 
+
+def deploy_online_boutique(platform):
+    if check_kubernetes_status() != util.EXIT_SUCCESS:
+        log.error("Kubernetes is not set up."
+                  " Did you run the deployment script?")
+        sys.exit(util.EXIT_FAILURE)
+
+    if platform == "MK":
+        cmd = f"skaffold run"
+    else:
+        # launch online boutique
+        release_dir = f"{FILE_DIR}/microservices-demo/release"
+        apply_cmd = f"kubectl apply -f "
+        cmd = f"{apply_cmd} {release_dir} &&"
+        cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
+        cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
+        cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
+
+    result = util.exec_process(cmd)
+    application_wait()
+    return result
 
 def remove_bookinfo():
     # remove bookinfo
@@ -146,6 +168,14 @@ def remove_bookinfo():
     result = util.exec_process(cmd)
     return result
 
+def remove_online_boutique():
+    # remove online boutique
+    release_dir = f"{FILE_DIR}/microservices-demo/release"
+    apply_cmd = "kubectl delete -f {release_dir} &&"
+    cmd += f"kubectl delete -f {YAML_DIR}/storage.yaml && "
+    cmd += f"kubectl delete -f {YAML_DIR}/productpage-cluster.yaml "
+    result = util.exec_process(cmd)
+    return result
 
 def inject_failure():
     cmd = f"kubectl apply -f {YAML_DIR}/fault-injection.yaml "
@@ -170,15 +200,22 @@ def check_kubernetes_status():
 def start_kubernetes(platform, multizonal):
     if platform == "GCP":
         cmd = "gcloud container clusters create demo --enable-autoupgrade "
-        cmd += "--enable-autoscaling --min-nodes=3 "
+        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=e2-standard-2 "
         cmd += "--max-nodes=10 --num-nodes=5 "
         if multizonal:
             cmd += "--region us-central1-a --node-locations us-central1-b "
             cmd += "us-central1-c us-central1-a "
         else:
             cmd += "--zone=us-central1-a "
+        result = util.exec_process(cmd)
+        cmd = f"gcloud services enable container.googleapis.com --project {PROJECT_ID} &&"
+        cmd += f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
+        cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
+
     else:
-        cmd = "minikube start --memory=6144 --cpus=2 "
+        #cmd = "minikube start --memory=6144 --cpus=2 "
+        # this is overkill for the bookinfo app, but this is necessary for online boutique
+        cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g" 
     result = util.exec_process(cmd)
     return result
 
@@ -272,6 +309,20 @@ def setup_bookinfo_deployment(platform, multizonal):
     return result
 
 
+def setup_online_boutique_deployment(platform, multizonal):
+    start_kubernetes(platform, multizonal)
+    cmd = " kubectl create namespace storage "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = inject_istio()
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = deploy_online_boutique(platform)
+    if result != util.EXIT_SUCCESS:
+        return result
+    return result
+
 def build_filter(filter_dir):
     # TODO: Move this into a script in the filter dir
     log.info("Building filter...")
@@ -359,6 +410,7 @@ def update_conf_map(filter_dir):
         if result != util.EXIT_SUCCESS:
             return result
         # update the containers with the config map
+        print("PATCHING BOOKINFO")
         return patch_bookinfo()
     # "refresh" the filter by recreating the config map
     return create_conf_map(filter_dir)
@@ -409,7 +461,7 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-    return bookinfo_wait()
+    return application_wait()
 
 
 def handle_filter(args):
@@ -429,10 +481,16 @@ def main(args):
     # single commands to execute
     if args.setup:
         return setup_bookinfo_deployment(args.platform, args.multizonal)
+    if args.setup_online_boutique:
+        return setup_online_boutique_deployment(args.platform, args.multizonal)
     if args.deploy_bookinfo:
         return deploy_bookinfo()
     if args.remove_bookinfo:
         return remove_bookinfo()
+    if args.deploy_online_boutique:
+        return deploy_online_boutique()
+    if args.remove_online_boutique:
+        return remove_online_boutique()
     if args.deploy_addons:
         return deploy_addons(args.deploy_addons)
     if args.remove_addons:
@@ -478,6 +536,13 @@ if __name__ == '__main__':
                         help="Just do a deployment. "
                         "This means installing bookinfo and Kubernetes."
                         " Do not run any experiments.")
+    parser.add_argument("-so",
+                        "--setup-online-boutique",
+                        dest="setup_online_boutique",
+                        action="store_true",
+                        help="Just do a deployment. "
+                        "This means installing online boutique and Kubernetes."
+                        " Do not run any experiments.")
     parser.add_argument("-c",
                         "--clean",
                         dest="clean",
@@ -493,11 +558,21 @@ if __name__ == '__main__':
                         dest="deploy_bookinfo",
                         action="store_true",
                         help="Deploy the bookinfo app. ")
+    parser.add_argument("-do",
+                        "--deploy-online-boutique",
+                        dest="deploy_online_boutique",
+                        action="store_true",
+                        help="Deploy the online boutique app. ")
     parser.add_argument("-rb",
                         "--remove-bookinfo",
                         dest="remove_bookinfo",
                         action="store_true",
-                        help="Remove the bookinfo app. ")
+                        help="remove the bookinfo app. ")
+    parser.add_argument("-ro",
+                        "--remove-online-boutique",
+                        dest="remove_online_boutique",
+                        action="store_true",
+                        help="remove the online boutique app. ")
     parser.add_argument("-bf",
                         "--build-filter",
                         dest="build_filter",
