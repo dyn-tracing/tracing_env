@@ -152,7 +152,7 @@ def start_kubernetes(platform, multizonal):
 
     else:
         # 1. Create cluster
-        cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g" 
+        cmd = "minikube start --cpus=2 --memory 4096 --disk-size 32g" 
         result = util.exec_process(cmd)
 
         # 2. Create storage namespace
