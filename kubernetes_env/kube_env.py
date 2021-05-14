@@ -18,6 +18,8 @@ ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.3")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
+ONLINE_BOUTIQUE_DIR = FILE_DIR.joinpath("microservices-demo")
+HOTEL_RESERVATION_DIR = FILE_DIR.joinpath("DeathStarBench/hotelReservation")
 PROJECT_ID = "dynamic-tracing"
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
@@ -125,6 +127,7 @@ def check_kubernetes_status():
 
 def start_kubernetes(platform, multizonal):
     if platform == "GCP":
+        # 1. Create cluster enabled with Istio already
         cmd = "gcloud beta container clusters create demo --enable-autoupgrade "
         cmd += "--enable-autoscaling --min-nodes=3 --machine-type=n1-standard-2 "
         cmd += "--max-nodes=10 --num-nodes=5 --addons=Istio --istio-config=auth=MTLS_STRICT "
@@ -137,15 +140,28 @@ def start_kubernetes(platform, multizonal):
         cmd = f"gcloud services enable container.googleapis.com --project {PROJECT_ID} &&"
         cmd += f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
         cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+
+        # 2. Create storage namespace
+        cmd = "kubectl create namespace storage"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
 
     else:
-        #cmd = "minikube start --memory=6144 --cpus=2 "
-        # this is overkill for the bookinfo app, but this is necessary for online boutique
-        #cmd = f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
-        #cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
+        # 1. Create cluster
         cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g" 
         result = util.exec_process(cmd)
 
+        # 2. Create storage namespace
+        cmd = "kubectl create namespace storage"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+
+        # 3. Enable istio on default and storage namespaces
         cmd = f"{ISTIO_BIN} install --set profile=demo "
         cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
         result = util.exec_process(cmd)
@@ -157,8 +173,6 @@ def start_kubernetes(platform, multizonal):
         result = util.exec_process(cmd)
         if result != util.EXIT_SUCCESS:
             return result
-        
-    result = util.exec_process(cmd)
     return result
 
 
@@ -429,23 +443,18 @@ def deploy_online_boutique(platform):
                   " Did you run the deployment script?")
         sys.exit(util.EXIT_FAILURE)
 
-    if platform == "MK":
-        cmd = f"skaffold run"
-    else:
-        # launch online boutique
-        release_dir = f"{FILE_DIR}/microservices-demo/release"
-        apply_cmd = f"kubectl apply -f "
-        cmd = f"{apply_cmd} {release_dir} &&"
-        cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
-        cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-        cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
-
+    apply_cmd = "kubectl apply -f"
+    cmd = f"{apply_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
+    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
     return result
 
 def deploy_reservation():
     #TODO
+    pass
 
 def remove_application(application):
     if application == "BK":
@@ -467,29 +476,28 @@ def remove_bookinfo():
 
 def remove_online_boutique():
     # remove online boutique
-    release_dir = f"{FILE_DIR}/microservices-demo/release"
-    apply_cmd = "kubectl delete -f {release_dir} &&"
-    cmd += f"kubectl delete -f {YAML_DIR}/storage.yaml && "
-    cmd += f"kubectl delete -f {YAML_DIR}/productpage-cluster.yaml "
+    delete_cmd = "kubectl delete -f"
+    cmd = f"{delete_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
+    cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{delete_cmd} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     return result
 
 def remove_hotel_reservation():
     #TODO
+    pass
 
 
 def setup_application_deployment(platform, multizonal, application):
     if application == "BK":
         setup_bookinfo_deployment(platform, multizonal)
-    else if application == "OB":
+    elif application == "OB":
         setup_online_boutique_deployment(platform, multizonal)
-    else if application == "HR":
+    elif application == "HR":
         setup_hotel_reservation_deployment(platform, multizonal)
 
 def setup_bookinfo_deployment(platform, multizonal):
-    start_kubernetes(platform, multizonal)
-    cmd = " kubectl create namespace storage "
-    result = util.exec_process(cmd)
+    result = start_kubernetes(platform, multizonal)
     if result != util.EXIT_SUCCESS:
         return result
     result = inject_istio()
@@ -502,9 +510,7 @@ def setup_bookinfo_deployment(platform, multizonal):
 
 
 def setup_online_boutique_deployment(platform, multizonal):
-    start_kubernetes(platform, multizonal)
-    cmd = " kubectl create namespace storage "
-    result = util.exec_process(cmd)
+    result = start_kubernetes(platform, multizonal)
     if result != util.EXIT_SUCCESS:
         return result
     result = inject_istio()
@@ -517,6 +523,7 @@ def setup_online_boutique_deployment(platform, multizonal):
 
 def setup_hotel_reservation_deployment(platform, multizonal):
     # TODO
+    pass
 
 
 
