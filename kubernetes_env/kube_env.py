@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.1")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.3")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
@@ -42,19 +42,19 @@ CM_FILTER_NAME = "rs-filter"
 
 
 def inject_istio():
-    cmd = f"{ISTIO_BIN} install --set profile=demo "
-    cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    #cmd = f"{ISTIO_BIN} install --set profile=demo "
+    #cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
+    #result = util.exec_process(cmd)
+    #if result != util.EXIT_SUCCESS:
+    #    return result
     cmd = "kubectl label namespace default istio-injection=enabled --overwrite"
     result = util.exec_process(cmd)
 
-    cmd = f"{ISTIO_BIN} install --set profile=demo -n storage "
-    cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    #cmd = f"{ISTIO_BIN} install --set profile=demo -n storage "
+    #cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
+    #result = util.exec_process(cmd)
+    #if result != util.EXIT_SUCCESS:
+    #    return result
     cmd = "kubectl label namespace storage istio-injection=enabled --overwrite"
     result = util.exec_process(cmd)
 
@@ -152,7 +152,7 @@ def deploy_online_boutique(platform):
         cmd = f"{apply_cmd} {release_dir} &&"
         cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
         cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-        cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
+        cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
 
     result = util.exec_process(cmd)
     application_wait()
@@ -199,9 +199,9 @@ def check_kubernetes_status():
 
 def start_kubernetes(platform, multizonal):
     if platform == "GCP":
-        cmd = "gcloud container clusters create demo --enable-autoupgrade "
-        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=e2-standard-2 "
-        cmd += "--max-nodes=10 --num-nodes=5 "
+        cmd = "gcloud beta container clusters create demo --enable-autoupgrade "
+        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=n1-standard-2 "
+        cmd += "--max-nodes=10 --num-nodes=5 --addons=Istio --istio-config=auth=MTLS_STRICT "
         if multizonal:
             cmd += "--region us-central1-a --node-locations us-central1-b "
             cmd += "us-central1-c us-central1-a "
@@ -215,6 +215,10 @@ def start_kubernetes(platform, multizonal):
     else:
         #cmd = "minikube start --memory=6144 --cpus=2 "
         # this is overkill for the bookinfo app, but this is necessary for online boutique
+        cmd = f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
+        cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
+        result = util.exec_process(cmd)
+
         cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g" 
     result = util.exec_process(cmd)
     return result
@@ -367,6 +371,7 @@ def patch_bookinfo():
         patch_cmd += f"--patch-file {YAML_DIR}/cm_patch.yaml "
         result = util.exec_process(patch_cmd)
         if result != util.EXIT_SUCCESS:
+            import pdb; pdb.set_trace()
             log.error("Failed to patch %s.", depl)
     # we also patch storage
     patch_cmd = "kubectl patch -n storage deployment.apps/storage-upstream "
@@ -410,7 +415,6 @@ def update_conf_map(filter_dir):
         if result != util.EXIT_SUCCESS:
             return result
         # update the containers with the config map
-        print("PATCHING BOOKINFO")
         return patch_bookinfo()
     # "refresh" the filter by recreating the config map
     return create_conf_map(filter_dir)
