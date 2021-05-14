@@ -125,7 +125,7 @@ def check_kubernetes_status():
     return result
 
 
-def start_kubernetes(platform, multizonal):
+def start_kubernetes(platform, multizonal, application):
     if platform == "GCP":
         # 1. Create cluster enabled with Istio already
         cmd = "gcloud beta container clusters create demo --enable-autoupgrade "
@@ -152,7 +152,17 @@ def start_kubernetes(platform, multizonal):
 
     else:
         # 1. Create cluster
-        cmd = "minikube start --cpus=2 --memory 4096 --disk-size 32g" 
+        # bookinfo needs less resources than other apps
+        # bookinfo also is the one we're doing continuous integration on,
+        # and the continuous integration does not have the resources for 4 cores
+        if application == "BK":
+            cmd = "minikube start --cpus=2 --memory 4096 --disk-size 32g" 
+        elif application == "OB":
+            cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g" 
+        elif application == "HR":
+            cmd = "minikube start --cpus=4 --memory 8192 --disk-size 32g" 
+        else:
+            return "INVALID APPLICATION"
         result = util.exec_process(cmd)
 
         # 2. Create storage namespace
@@ -452,9 +462,21 @@ def deploy_online_boutique(platform):
     application_wait()
     return result
 
-def deploy_reservation():
-    #TODO
-    pass
+def deploy_hotel_reservation():
+    if check_kubernetes_status() != util.EXIT_SUCCESS:
+        log.error("Kubernetes is not set up."
+                  " Did you run the deployment script?")
+        sys.exit(util.EXIT_FAILURE)
+
+    apply_cmd = "kubectl apply -f"
+   
+    cmd = f"{apply_cmd} {HOTEL_RESERVATION_DIR}/kubernetes && " 
+    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
+    cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
+    result = util.exec_process(cmd)
+    application_wait()
+    return result
 
 def remove_application(application):
     if application == "BK":
@@ -479,11 +501,18 @@ def remove_online_boutique():
     delete_cmd = "kubectl delete -f"
     cmd = f"{delete_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
     cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{delete_cmd} {YAML_DIR}/productpage-cluster.yaml "
+    cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
     result = util.exec_process(cmd)
     return result
 
 def remove_hotel_reservation():
+    delete_cmd = "kubectl delete -f"
+    cmd = f"{delete_cmd} {HOTEL_RESERVATION_DIR}/kubernetes && "
+    cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
+    cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
+    result = util.exec_process(cmd)
+    return result
+
     #TODO
     pass
 
@@ -497,7 +526,7 @@ def setup_application_deployment(platform, multizonal, application):
         setup_hotel_reservation_deployment(platform, multizonal)
 
 def setup_bookinfo_deployment(platform, multizonal):
-    result = start_kubernetes(platform, multizonal)
+    result = start_kubernetes(platform, multizonal, "BK")
     if result != util.EXIT_SUCCESS:
         return result
     result = inject_istio()
@@ -510,7 +539,7 @@ def setup_bookinfo_deployment(platform, multizonal):
 
 
 def setup_online_boutique_deployment(platform, multizonal):
-    result = start_kubernetes(platform, multizonal)
+    result = start_kubernetes(platform, multizonal, "OB")
     if result != util.EXIT_SUCCESS:
         return result
     result = inject_istio()
@@ -522,10 +551,16 @@ def setup_online_boutique_deployment(platform, multizonal):
     return result
 
 def setup_hotel_reservation_deployment(platform, multizonal):
-    # TODO
-    pass
-
-
+    result = start_kubernetes(platform, multizonal, "HR")
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = inject_istio()
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = deploy_hotel_reservation()
+    if result != util.EXIT_SUCCESS:
+        return result
+    return result
 
 
 def main(args):
