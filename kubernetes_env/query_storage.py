@@ -5,7 +5,6 @@ import argparse
 import logging
 import requests
 import kube_env
-import run_experiment
 import kube_util as util
 
 log = logging.getLogger(__name__)
