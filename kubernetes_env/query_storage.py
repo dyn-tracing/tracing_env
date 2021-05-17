@@ -4,16 +4,30 @@ import os
 import argparse
 import logging
 import requests
-
+import kube_env
 import run_experiment
 import kube_util as util
 
 log = logging.getLogger(__name__)
 
+def launch_storage_mon():                                                       
+    if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:                 
+        log.error("Kubernetes is not set up."                                   
+                  " Did you run the deployment script?")                        
+        sys.exit(util.EXIT_FAILURE)                                             
+    cmd = "kubectl get pods -lapp=storage-upstream "                            
+    cmd += " -o jsonpath={.items[0].metadata.name} -n=storage"                  
+    storage_pod_name = util.get_output_from_proc(cmd).decode("utf-8")           
+    cmd = f"kubectl -n=storage port-forward {storage_pod_name} 8090:8080"       
+    storage_proc = util.start_process(cmd, preexec_fn=os.setsid)                
+    # Let settle things in a bit                                                
+    time.sleep(2)                                                               
+
+    return storage_proc
 
 def init_storage_mon():
     util.kill_tcp_proc(8090)
-    storage_proc = run_experiment.launch_storage_mon()
+    storage_proc = launch_storage_mon()
     return storage_proc
 
 
