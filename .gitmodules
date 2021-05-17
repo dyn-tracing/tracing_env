@@ -7,9 +7,6 @@
 [submodule "storage"]
     url = https://github.com/dyn-tracing/storage
     path = kubernetes_env/storage
-[submodule "kubernetes_env/microservices-demo"]
-	path = kubernetes_env/microservices-demo
-	url = https://github.com/GoogleCloudPlatform/microservices-demo.git
 [submodule "kubernetes_env/DeathStarBench"]
 	path = kubernetes_env/DeathStarBench
 	url = git@github.com:dyn-tracing/DeathStarBench.git
