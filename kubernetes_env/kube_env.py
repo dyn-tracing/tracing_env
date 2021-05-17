@@ -156,8 +156,8 @@ def start_kubernetes(platform, multizonal, application):
             cmd = "minikube start --cpus=2 --memory 4096 --disk-size 32g" 
         elif application == "OB":
             cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g"
-        elif application == "HR": #TODO: this still isn't enough
-            cmd = "minikube start --cpus=4 --memory 8192 --disk-size 32g" 
+        elif application == "HR":
+            return "Hotel Reservation does not run on minikube;  not enough resources"
         else:
             return "INVALID APPLICATION"
         result = util.exec_process(cmd)
