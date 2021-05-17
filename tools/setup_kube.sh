@@ -50,11 +50,6 @@ fi
 # Bookinfo requires more memory
 minikube config set memory 4096
 
-# Get skaffold to deploy online boutique on minikube
-# TODO: is glcloud automatically installed above?  it should be
-gcloud components install skaffold
-
-
 # Need prometheus for the API
 pip3 install --user prometheus-api-client
 # download and unpack istio

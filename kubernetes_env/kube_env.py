@@ -301,7 +301,6 @@ def patch_application():
         patch_cmd += f"--patch-file {YAML_DIR}/cm_patch.yaml "
         result = util.exec_process(patch_cmd)
         if result != util.EXIT_SUCCESS:
-            #import pdb; pdb.set_trace()
             log.error("Failed to patch %s.", depl)
     # we also patch storage
     patch_cmd = "kubectl patch -n storage deployment.apps/storage-upstream "
@@ -455,9 +454,6 @@ def deploy_online_boutique(platform):
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
-    result = util.exec_process(cmd)
-    application_wait()
-    delete_loadgen_cmd = "kubectl delete pods,services -l name=loadgenerator"
     result = util.exec_process(cmd)
     application_wait()
     return result
