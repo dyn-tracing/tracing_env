@@ -6,6 +6,7 @@ import logging
 import requests
 import kube_env
 import kube_util as util
+import time
 
 log = logging.getLogger(__name__)
 
