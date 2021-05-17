@@ -22,7 +22,6 @@ def launch_storage_mon():
     storage_proc = util.start_process(cmd, preexec_fn=os.setsid)                
     # Let settle things in a bit                                                
     time.sleep(2)                                                               
-
     return storage_proc
 
 def init_storage_mon():

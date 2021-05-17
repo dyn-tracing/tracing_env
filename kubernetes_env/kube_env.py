@@ -157,7 +157,7 @@ def start_kubernetes(platform, multizonal, application):
         elif application == "OB":
             cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g"
         elif application == "HR": #TODO: this still isn't enough
-            cmd = "minikube start --cpus=8 --memory 8192 --disk-size 32g"
+            cmd = "minikube start --cpus=4 --memory 8192 --disk-size 32g" 
         else:
             return "INVALID APPLICATION"
         result = util.exec_process(cmd)
@@ -466,7 +466,6 @@ def deploy_hotel_reservation():
         sys.exit(util.EXIT_FAILURE)
 
     apply_cmd = "kubectl apply -f"
-
     cmd = f"{apply_cmd} {HOTEL_RESERVATION_DIR}/kubernetes && "
     cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
     cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
@@ -498,7 +497,7 @@ def remove_online_boutique():
     delete_cmd = "kubectl delete -f"
     cmd = f"{delete_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
     cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{delete_cmd} {YAML_DIR}/productpage-cluster.yaml "
+    cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
     result = util.exec_process(cmd)
     return result
 
@@ -509,7 +508,6 @@ def remove_hotel_reservation():
     cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
     result = util.exec_process(cmd)
     return result
-
 
 def setup_application_deployment(platform, multizonal, application):
     if application == "BK":
