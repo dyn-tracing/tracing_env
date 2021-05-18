@@ -21,6 +21,34 @@ TOOLS_DIR = FILE_DIR.joinpath("tools")
 ONLINE_BOUTIQUE_DIR = FILE_DIR.joinpath("microservices-demo")
 HOTEL_RESERVATION_DIR = FILE_DIR.joinpath("DeathStarBench/hotelReservation")
 PROJECT_ID = "dynamic-tracing"
+APPLY_CMD = "kubectl apply -f "
+DELETE_CMD = "kubectl delete -f "
+CONFIG_MATRIX = {
+    'BK': {
+        'minikube_startup_command': "minikube start --cpus=2 --memory 4096 --disk-size 32g",
+        'deploy_cmd': f"{APPLY_CMD} {YAML_DIR}/bookinfo-services.yaml && \
+                        {APPLY_CMD} {YAML_DIR}/bookinfo-apps.yaml && \
+                        {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/bookinfo-gateway.yaml && \
+                        {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/destination-rule-reviews.yaml ",
+        'undeploy_cmd': f"{ISTIO_DIR}/samples/bookinfo/platform/kube/cleanup.sh" 
+    },
+    'OB': {
+        'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
+        'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
+        'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
+    },
+    'HR': {
+        'minikube_startup_command': None,
+        'deploy_cmd': f"{APPLY_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
+        'undeploy_cmd': f"{DELETE_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
+    },
+    'TT': {
+        'minikube_startup_command': None,
+        'deploy_cmd': None, # TODO
+        'undeploy_cmd': None, #TODO
+    },
+}
+
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
 DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath(
@@ -70,7 +98,7 @@ def deploy_addons(addons):
     if result != util.EXIT_SUCCESS:
         return result
 
-    cmd = "kubectl get deploy -n istio-system -o name"
+    cmd = "kubectl get deploy -n istio-system -o name --all-namespaces "
     deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
     deployments = deployments.split("\n")
     for depl in deployments:
@@ -96,12 +124,21 @@ def remove_addons(addons):
 
 
 def application_wait():
-    cmd = "kubectl get deploy -o name"
-    deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
-    deployments = deployments.split("\n")
-    for depl in deployments:
-        wait_cmd = f"kubectl rollout status {depl} -w --timeout=180s"
-        _ = util.exec_process(wait_cmd)
+    cmd = "kubectl get namespaces -o name"
+    namespaces_list = util.get_output_from_proc(cmd).decode("utf-8").strip()
+    namespaces_list = namespaces_list.split("\n")
+    namespaces = []
+    for namespace_long in namespaces_list:
+        ns = namespace_long.split("/")
+        namespaces.append(ns[1])
+    for namespace in namespaces:
+        cmd = f"kubectl get deploy -o name -n {namespace}"
+        deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
+        if deployments != '':
+            deployments = deployments.split("\n")
+            for depl in deployments:
+                wait_cmd = f"kubectl wait --for=condition=available {depl} -n {namespace} --timeout=5s"
+                _ = util.exec_process(wait_cmd)
     log.info("Application is ready.")
     return util.EXIT_SUCCESS
 
@@ -129,14 +166,15 @@ def start_kubernetes(platform, multizonal, application):
     if platform == "GCP":
         # 1. Create cluster enabled with Istio already
         cmd = "gcloud beta container clusters create demo --enable-autoupgrade "
-        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=n1-standard-2 "
-        cmd += "--max-nodes=10 --num-nodes=5 --addons=Istio --istio-config=auth=MTLS_STRICT "
+        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=e2-medium "
+        cmd += "--max-nodes=10 --num-nodes=7 --addons=Istio --istio-config=auth=MTLS_PERMISSIVE "
         if multizonal:
             cmd += "--region us-central1-a --node-locations us-central1-b "
             cmd += "us-central1-c us-central1-a "
         else:
             cmd += "--zone=us-central1-a "
         result = util.exec_process(cmd)
+        application_wait()
         cmd = f"gcloud services enable container.googleapis.com --project {PROJECT_ID} &&"
         cmd += f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
         cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
@@ -152,15 +190,13 @@ def start_kubernetes(platform, multizonal, application):
 
     else:
         # 1. Create cluster
-        if application == "BK":
-            cmd = "minikube start --cpus=2 --memory 4096 --disk-size 32g" 
-        elif application == "OB":
-            cmd = "minikube start --cpus=4 --memory 4096 --disk-size 32g"
-        elif application == "HR":
-            return "Hotel Reservation does not run on minikube;  not enough resources"
+        if CONFIG_MATRIX[application]['minikube_startup_command'] != None:
+            cmd = CONFIG_MATRIX[application]['minikube_startup_command']
+            result = util.exec_process(cmd)
+            if result != util.EXIT_SUCCESS:
+                return result
         else:
-            return "INVALID APPLICATION"
-        result = util.exec_process(cmd)
+            return "APPLICATION IS NOT SUPPORTED ON MINIKUBE"
 
         # 2. Create storage namespace
         cmd = "kubectl create namespace storage"
@@ -413,146 +449,36 @@ def handle_filter(args):
 ################### APPLICATION SPECIFIC FUNCTIONS ###########################
 
 def deploy_application(application):
-    if application == "BK":
-        deploy_bookinfo()
-    elif application == "OB":
-        deploy_online_boutique()
-    elif application == "HR":
-        deploy_hotel_reservation()
-
-def deploy_bookinfo():
     if check_kubernetes_status() != util.EXIT_SUCCESS:
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         sys.exit(util.EXIT_FAILURE)
-
-    # launch bookinfo
-    samples_dir = f"{ISTIO_DIR}/samples"
-    bookinfo_dir = f"{samples_dir}/bookinfo"
-    apply_cmd = "kubectl apply -f"
-    book_cmd = f"{apply_cmd} {bookinfo_dir}"
-    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-services.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
-    cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
-    cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
-    result = util.exec_process(cmd)
-    application_wait()
-    return result
-
-
-def deploy_online_boutique(platform):
-    if check_kubernetes_status() != util.EXIT_SUCCESS:
-        log.error("Kubernetes is not set up."
-                  " Did you run the deployment script?")
-        sys.exit(util.EXIT_FAILURE)
-
-    apply_cmd = "kubectl apply -f"
-    cmd = f"{apply_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
-    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
-    result = util.exec_process(cmd)
-    application_wait()
-    return result
-
-def deploy_hotel_reservation():
-    if check_kubernetes_status() != util.EXIT_SUCCESS:
-        log.error("Kubernetes is not set up."
-                  " Did you run the deployment script?")
-        sys.exit(util.EXIT_FAILURE)
-
-    apply_cmd = "kubectl apply -f"
-    cmd = f"{apply_cmd} {HOTEL_RESERVATION_DIR}/kubernetes && "
-    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/frontend-cluster.yaml "
+    cmd = CONFIG_MATRIX[application]['deploy_cmd']
+    cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/productpage-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
     return result
 
 def remove_application(application):
-    if application == "BK":
-        remove_bookinfo()
-    elif application == "OB":
-        remove_online_boutique()
-    elif applicaiton == "HR":
-        remove_hotel_reservation()
-
-def remove_bookinfo():
-    # remove bookinfo
-    samples_dir = f"{ISTIO_DIR}/samples"
-    bookinfo_dir = f"{samples_dir}/bookinfo"
-    cmd = f"{bookinfo_dir}/platform/kube/cleanup.sh &&"
-    cmd += f"kubectl delete -f {YAML_DIR}/storage.yaml && "
-    cmd += f"kubectl delete -f {YAML_DIR}/productpage-cluster.yaml "
-    result = util.exec_process(cmd)
-    return result
-
-def remove_online_boutique():
-    # remove online boutique
-    delete_cmd = "kubectl delete -f"
-    cmd = f"{delete_cmd} {ONLINE_BOUTIQUE_DIR}/release && "
-    cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
-    result = util.exec_process(cmd)
-    return result
-
-def remove_hotel_reservation():
-    delete_cmd = "kubectl delete -f"
-    cmd = f"{delete_cmd} {HOTEL_RESERVATION_DIR}/kubernetes && "
-    cmd += f"{delete_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{delete_cmd} {YAML_DIR}/frontend-cluster.yaml "
+    cmd = CONFIG_MATRIX[application]['undeploy_cmd']
+    cmd += f" && {DELETE_CMD} {YAML_DIR}/storage.yaml && "
+    cmd += f"{DELETE_CMD} {YAML_DIR}/root-cluster.yaml "
     result = util.exec_process(cmd)
     return result
 
 def setup_application_deployment(platform, multizonal, application):
-    if application == "BK":
-        setup_bookinfo_deployment(platform, multizonal)
-    elif application == "OB":
-        setup_online_boutique_deployment(platform, multizonal)
-    elif application == "HR":
-        setup_hotel_reservation_deployment(platform, multizonal)
-
-def setup_bookinfo_deployment(platform, multizonal):
-    result = start_kubernetes(platform, multizonal, "BK")
+    result = start_kubernetes(platform, multizonal, application)
     if result != util.EXIT_SUCCESS:
         return result
     result = inject_istio()
     if result != util.EXIT_SUCCESS:
         return result
-    result = deploy_bookinfo()
+    result = deploy_application(application)
     if result != util.EXIT_SUCCESS:
         return result
     return result
-
-
-def setup_online_boutique_deployment(platform, multizonal):
-    result = start_kubernetes(platform, multizonal, "OB")
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = inject_istio()
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = deploy_online_boutique(platform)
-    if result != util.EXIT_SUCCESS:
-        return result
-    return result
-
-def setup_hotel_reservation_deployment(platform, multizonal):
-    result = start_kubernetes(platform, multizonal, "HR")
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = inject_istio()
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = deploy_hotel_reservation()
-    if result != util.EXIT_SUCCESS:
-        return result
-    return result
-
 
 def main(args):
     # single commands to execute
@@ -597,10 +523,10 @@ if __name__ == '__main__':
     parser.add_argument("-a",
                         "--application",
                         dest="application",
-                        default="BI",
-                        choices=["BI", "HR", "OB"],
+                        default="BK",
+                        choices=["BK", "HR", "OB", "TT"],
                         help="Which platform to run the scripts on."
-                        "BI is bookinfo, HR is hotel reservation, and OB is online boutique")
+                        "BK is bookinfo, HR is hotel reservation, and OB is online boutique")
     parser.add_argument("-m",
                         "--multi-zonal",
                         dest="multizonal",
