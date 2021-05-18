@@ -74,10 +74,22 @@ CM_FILTER_NAME = "rs-filter"
 
 ############## PLATFORM RELATED FUNCTIONS ###############################
 def inject_istio():
+    cmd = f"{ISTIO_BIN} install --set profile=demo "
+    cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
     cmd = "kubectl label namespace default istio-injection=enabled --overwrite"
     result = util.exec_process(cmd)
+
+    cmd = f"{ISTIO_BIN} install --set profile=demo -n storage "
+    cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
     cmd = "kubectl label namespace storage istio-injection=enabled --overwrite"
     result = util.exec_process(cmd)
+
     return result
 
 
@@ -124,22 +136,13 @@ def remove_addons(addons):
 
 
 def application_wait():
-    cmd = "kubectl get namespaces -o name"
-    namespaces_list = util.get_output_from_proc(cmd).decode("utf-8").strip()
-    namespaces_list = namespaces_list.split("\n")
-    namespaces = []
-    for namespace_long in namespaces_list:
-        ns = namespace_long.split("/")
-        namespaces.append(ns[1])
-    for namespace in namespaces:
-        cmd = f"kubectl get deploy -o name -n {namespace}"
-        deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
-        if deployments != '':
-            deployments = deployments.split("\n")
-            for depl in deployments:
-                wait_cmd = f"kubectl wait --for=condition=available {depl} -n {namespace} --timeout=5s"
-                _ = util.exec_process(wait_cmd)
-    log.info("Application is ready.")
+    cmd = "kubectl get deploy -o name"
+    deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
+    deployments = deployments.split("\n")
+    for depl in deployments:
+        wait_cmd = f"kubectl rollout status {depl} -w --timeout=180s"
+        _ = util.exec_process(wait_cmd)
+    log.info("Bookinfo is ready.")
     return util.EXIT_SUCCESS
 
 def inject_failure():
@@ -165,9 +168,9 @@ def check_kubernetes_status():
 def start_kubernetes(platform, multizonal, application):
     if platform == "GCP":
         # 1. Create cluster enabled with Istio already
-        cmd = "gcloud beta container clusters create demo --enable-autoupgrade "
-        cmd += "--enable-autoscaling --min-nodes=3 --machine-type=e2-medium "
-        cmd += "--max-nodes=10 --num-nodes=7 --addons=Istio --istio-config=auth=MTLS_PERMISSIVE "
+        cmd = "gcloud container clusters create demo --enable-autoupgrade "
+        cmd += "--enable-autoscaling --min-nodes=3 "
+        cmd += "--max-nodes=10 --num-nodes=5 "
         if multizonal:
             cmd += "--region us-central1-a --node-locations us-central1-b "
             cmd += "us-central1-c us-central1-a "
@@ -204,18 +207,6 @@ def start_kubernetes(platform, multizonal, application):
         if result != util.EXIT_SUCCESS:
             return result
 
-        # 3. Enable istio on default and storage namespaces
-        cmd = f"{ISTIO_BIN} install --set profile=demo "
-        cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
-        result = util.exec_process(cmd)
-        if result != util.EXIT_SUCCESS:
-            return result
-
-        cmd = f"{ISTIO_BIN} install --set profile=demo -n storage "
-        cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
-        result = util.exec_process(cmd)
-        if result != util.EXIT_SUCCESS:
-            return result
     return result
 
 
@@ -456,7 +447,7 @@ def deploy_application(application):
     cmd = CONFIG_MATRIX[application]['deploy_cmd']
     cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
     cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{APPLY_CMD} {YAML_DIR}/productpage-cluster.yaml "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
     return result
