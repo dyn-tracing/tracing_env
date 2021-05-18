@@ -120,7 +120,7 @@ def do_burst(url, platform, threads, qps, run_time):
         end = current + timedelta(seconds=run_time)
         while current < end:
             results = list(
-                p.map(send_request, range(qps))
+                p.map(send_request, range(qps)))
             current += timedelta(seconds=1)
             output += results
     return output

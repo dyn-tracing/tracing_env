@@ -50,12 +50,11 @@ fi
 # Bookinfo requires more memory
 minikube config set memory 4096
 
-
 # Need prometheus for the API
 pip3 install --user prometheus-api-client
 # download and unpack istio
 cd $ENV_DIR && curl -L https://istio.io/downloadIstio | \
-    ISTIO_VERSION=1.9.1 TARGET_ARCH=x86_64 sh - && cd -
+    ISTIO_VERSION=1.9.3 TARGET_ARCH=x86_64 sh - && cd -
 # Create the bin directory
 mkdir -p bin
 # Download fortio

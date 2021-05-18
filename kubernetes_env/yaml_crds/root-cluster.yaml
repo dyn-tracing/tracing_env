@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: productpage-storage-upstream-cluster
+  name: root-storage-upstream-cluster
 spec:
   configPatches:
     - applyTo: CLUSTER
@@ -23,6 +23,3 @@ spec:
                     socket_address:
                       address: storage-upstream
                       port_value: 8080
-  # workloadSelector:
-  #   labels:
-  #     app: productpage

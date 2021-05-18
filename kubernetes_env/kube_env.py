@@ -14,10 +14,41 @@ log = logging.getLogger(__name__)
 
 FILE_DIR = Path(__file__).parent.resolve()
 ROOT_DIR = FILE_DIR.parent
-ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.1")
+ISTIO_DIR = FILE_DIR.joinpath("istio-1.9.3")
 ISTIO_BIN = ISTIO_DIR.joinpath("bin/istioctl")
 YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
+ONLINE_BOUTIQUE_DIR = FILE_DIR.joinpath("microservices-demo")
+HOTEL_RESERVATION_DIR = FILE_DIR.joinpath("DeathStarBench/hotelReservation")
+PROJECT_ID = "dynamic-tracing"
+APPLY_CMD = "kubectl apply -f "
+DELETE_CMD = "kubectl delete -f "
+CONFIG_MATRIX = {
+    'BK': {
+        'minikube_startup_command': "minikube start --cpus=2 --memory 4096 --disk-size 32g",
+        'deploy_cmd': f"{APPLY_CMD} {YAML_DIR}/bookinfo-services.yaml && \
+                        {APPLY_CMD} {YAML_DIR}/bookinfo-apps.yaml && \
+                        {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/bookinfo-gateway.yaml && \
+                        {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/destination-rule-reviews.yaml ",
+        'undeploy_cmd': f"{ISTIO_DIR}/samples/bookinfo/platform/kube/cleanup.sh" 
+    },
+    'OB': {
+        'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
+        'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
+        'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
+    },
+    'HR': {
+        'minikube_startup_command': None,
+        'deploy_cmd': f"{APPLY_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
+        'undeploy_cmd': f"{DELETE_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
+    },
+    'TT': {
+        'minikube_startup_command': None,
+        'deploy_cmd': None, # TODO
+        'undeploy_cmd': None, #TODO
+    },
+}
+
 
 FILTER_DIR = FILE_DIR.joinpath("../tracing_compiler/filter_envoy")
 DISTRIBUTED_FILTER_DIR = FILE_DIR.joinpath(
@@ -40,6 +71,8 @@ CM_FILTER_NAME = "rs-filter"
 # create_from_yaml(k8s_client, f"{bookinfo_dir}/platform/kube/bookinfo.yaml")
 
 
+
+############## PLATFORM RELATED FUNCTIONS ###############################
 def inject_istio():
     cmd = f"{ISTIO_BIN} install --set profile=demo "
     cmd += "--set meshConfig.enableTracing=true --skip-confirmation "
@@ -77,7 +110,7 @@ def deploy_addons(addons):
     if result != util.EXIT_SUCCESS:
         return result
 
-    cmd = "kubectl get deploy -n istio-system -o name"
+    cmd = "kubectl get deploy -n istio-system -o name --all-namespaces "
     deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
     deployments = deployments.split("\n")
     for depl in deployments:
@@ -102,7 +135,7 @@ def remove_addons(addons):
     return util.exec_process(cmd)
 
 
-def bookinfo_wait():
+def application_wait():
     cmd = "kubectl get deploy -o name"
     deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
     deployments = deployments.split("\n")
@@ -111,41 +144,6 @@ def bookinfo_wait():
         _ = util.exec_process(wait_cmd)
     log.info("Bookinfo is ready.")
     return util.EXIT_SUCCESS
-
-
-def deploy_bookinfo():
-    if check_kubernetes_status() != util.EXIT_SUCCESS:
-        log.error("Kubernetes is not set up."
-                  " Did you run the deployment script?")
-        sys.exit(util.EXIT_FAILURE)
-
-    # launch bookinfo
-    samples_dir = f"{ISTIO_DIR}/samples"
-    bookinfo_dir = f"{samples_dir}/bookinfo"
-    apply_cmd = "kubectl apply -f"
-    book_cmd = f"{apply_cmd} {bookinfo_dir}"
-    cmd = f"{apply_cmd} {YAML_DIR}/bookinfo-services.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/bookinfo-apps.yaml && "
-    cmd += f"{book_cmd}/networking/bookinfo-gateway.yaml && "
-    cmd += f"{book_cmd}/networking/destination-rule-reviews.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/storage.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{apply_cmd} {YAML_DIR}/productpage-cluster.yaml "
-    result = util.exec_process(cmd)
-    bookinfo_wait()
-    return result
-
-
-def remove_bookinfo():
-    # remove bookinfo
-    samples_dir = f"{ISTIO_DIR}/samples"
-    bookinfo_dir = f"{samples_dir}/bookinfo"
-    cmd = f"{bookinfo_dir}/platform/kube/cleanup.sh &&"
-    cmd += f"kubectl delete -f {YAML_DIR}/storage.yaml && "
-    cmd += f"kubectl delete -f {YAML_DIR}/productpage-cluster.yaml "
-    result = util.exec_process(cmd)
-    return result
-
 
 def inject_failure():
     cmd = f"kubectl apply -f {YAML_DIR}/fault-injection.yaml "
@@ -167,8 +165,9 @@ def check_kubernetes_status():
     return result
 
 
-def start_kubernetes(platform, multizonal):
+def start_kubernetes(platform, multizonal, application):
     if platform == "GCP":
+        # 1. Create cluster enabled with Istio already
         cmd = "gcloud container clusters create demo --enable-autoupgrade "
         cmd += "--enable-autoscaling --min-nodes=3 "
         cmd += "--max-nodes=10 --num-nodes=5 "
@@ -177,9 +176,37 @@ def start_kubernetes(platform, multizonal):
             cmd += "us-central1-c us-central1-a "
         else:
             cmd += "--zone=us-central1-a "
+        result = util.exec_process(cmd)
+        application_wait()
+        cmd = f"gcloud services enable container.googleapis.com --project {PROJECT_ID} &&"
+        cmd += f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
+        cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+
+        # 2. Create storage namespace
+        cmd = "kubectl create namespace storage"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+
     else:
-        cmd = "minikube start --memory=6144 --cpus=2 "
-    result = util.exec_process(cmd)
+        # 1. Create cluster
+        if CONFIG_MATRIX[application]['minikube_startup_command'] != None:
+            cmd = CONFIG_MATRIX[application]['minikube_startup_command']
+            result = util.exec_process(cmd)
+            if result != util.EXIT_SUCCESS:
+                return result
+        else:
+            return "APPLICATION IS NOT SUPPORTED ON MINIKUBE"
+
+        # 2. Create storage namespace
+        cmd = "kubectl create namespace storage"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+
     return result
 
 
@@ -257,21 +284,7 @@ def start_fortio(gateway_url):
     return fortio_proc
 
 
-def setup_bookinfo_deployment(platform, multizonal):
-    start_kubernetes(platform, multizonal)
-    cmd = " kubectl create namespace storage "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = inject_istio()
-    if result != util.EXIT_SUCCESS:
-        return result
-    result = deploy_bookinfo()
-    if result != util.EXIT_SUCCESS:
-        return result
-    return result
-
-
+############### FILTER RELATED FUNCTIONS ######################################
 def build_filter(filter_dir):
     # TODO: Move this into a script in the filter dir
     log.info("Building filter...")
@@ -306,8 +319,7 @@ def undeploy_filter():
     # restore the original bookinfo
     return deploy_bookinfo()
 
-
-def patch_bookinfo():
+def patch_application():
     cmd = "kubectl get deploy -o name"
     deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
     deployments = deployments.split("\n")
@@ -359,7 +371,7 @@ def update_conf_map(filter_dir):
         if result != util.EXIT_SUCCESS:
             return result
         # update the containers with the config map
-        return patch_bookinfo()
+        return patch_application()
     # "refresh" the filter by recreating the config map
     return create_conf_map(filter_dir)
 
@@ -380,7 +392,7 @@ def deploy_filter(filter_dir):
     if result != util.EXIT_SUCCESS:
         return result
     # update the containers with the config map
-    result = patch_bookinfo()
+    result = patch_application()
     if result != util.EXIT_SUCCESS:
         return result
     # now activate the filter
@@ -409,7 +421,7 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-    return bookinfo_wait()
+    return application_wait()
 
 
 def handle_filter(args):
@@ -425,14 +437,48 @@ def handle_filter(args):
     return util.EXIT_SUCCESS
 
 
+################### APPLICATION SPECIFIC FUNCTIONS ###########################
+
+def deploy_application(application):
+    if check_kubernetes_status() != util.EXIT_SUCCESS:
+        log.error("Kubernetes is not set up."
+                  " Did you run the deployment script?")
+        sys.exit(util.EXIT_FAILURE)
+    cmd = CONFIG_MATRIX[application]['deploy_cmd']
+    cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
+    result = util.exec_process(cmd)
+    application_wait()
+    return result
+
+def remove_application(application):
+    cmd = CONFIG_MATRIX[application]['undeploy_cmd']
+    cmd += f" && {DELETE_CMD} {YAML_DIR}/storage.yaml && "
+    cmd += f"{DELETE_CMD} {YAML_DIR}/root-cluster.yaml "
+    result = util.exec_process(cmd)
+    return result
+
+def setup_application_deployment(platform, multizonal, application):
+    result = start_kubernetes(platform, multizonal, application)
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = inject_istio()
+    if result != util.EXIT_SUCCESS:
+        return result
+    result = deploy_application(application)
+    if result != util.EXIT_SUCCESS:
+        return result
+    return result
+
 def main(args):
     # single commands to execute
     if args.setup:
-        return setup_bookinfo_deployment(args.platform, args.multizonal)
-    if args.deploy_bookinfo:
-        return deploy_bookinfo()
-    if args.remove_bookinfo:
-        return remove_bookinfo()
+        return setup_application_deployment(args.platform, args.multizonal, args.application)
+    if args.deploy_application:
+        return deploy_bookinfo(args.application)
+    if args.remove_application:
+        return remove_application(args.application)
     if args.deploy_addons:
         return deploy_addons(args.deploy_addons)
     if args.remove_addons:
@@ -465,6 +511,13 @@ if __name__ == '__main__':
                         choices=["MK", "GCP"],
                         help="Which platform to run the scripts on."
                         "MK is minikube, GCP is Google Cloud Compute")
+    parser.add_argument("-a",
+                        "--application",
+                        dest="application",
+                        default="BK",
+                        choices=["BK", "HR", "OB", "TT"],
+                        help="Which platform to run the scripts on."
+                        "BK is bookinfo, HR is hotel reservation, and OB is online boutique")
     parser.add_argument("-m",
                         "--multi-zonal",
                         dest="multizonal",
@@ -476,7 +529,7 @@ if __name__ == '__main__':
                         dest="setup",
                         action="store_true",
                         help="Just do a deployment. "
-                        "This means installing bookinfo and Kubernetes."
+                        "This means installing the application and Kubernetes."
                         " Do not run any experiments.")
     parser.add_argument("-c",
                         "--clean",
@@ -489,15 +542,15 @@ if __name__ == '__main__':
                         default=FILTER_DIR,
                         help="The directory of the filter")
     parser.add_argument("-db",
-                        "--deploy-bookinfo",
-                        dest="deploy_bookinfo",
+                        "--deploy-application",
+                        dest="deploy_application",
                         action="store_true",
-                        help="Deploy the bookinfo app. ")
+                        help="Deploy the app. ")
     parser.add_argument("-rb",
-                        "--remove-bookinfo",
-                        dest="remove_bookinfo",
+                        "--remove-application",
+                        dest="remove_application",
                         action="store_true",
-                        help="Remove the bookinfo app. ")
+                        help="remove the app. ")
     parser.add_argument("-bf",
                         "--build-filter",
                         dest="build_filter",
