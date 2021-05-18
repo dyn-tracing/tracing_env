@@ -25,7 +25,7 @@ class TestClassKubernetes:
         """ Setup any state specific to the execution of the given class (which
         usually contains tests).
         """
-        result = kube_env.setup_bookinfo_deployment("MK", False)
+        result = kube_env.setup_application_deployment("MK", False, "BK")
         assert result == util.EXIT_SUCCESS
 
     # def test_count(self):
