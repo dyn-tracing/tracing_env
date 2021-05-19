@@ -57,13 +57,17 @@ CONFIG_MATRIX = {
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
                                   --enable-autoscaling --min-nodes=3 \
                                   --max-nodes=15 --num-nodes=8 ",
-        'deploy_cmd': f"{APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml) && \
-                        {APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml) && \
-                        {APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part3.yml) && \
-                        {APPLY_CMD} {TRAIN_TICKET_DIR}/trainticket-gateway.yaml ",
-        'undeploy_cmd': f"{DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part1.yml && \
-                        {DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part2.yml && \
-                        {DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part3.yml "
+        'deploy_cmd': f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml > dpl1.yml && " +
+                      f"{APPLY_CMD} dpl1.yml && " +
+                      f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml > dpl2.yml && " +
+                      f"{APPLY_CMD} dpl2.yml && " +
+                      f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part3.yml > dpl3.yml && " +
+                      f"{APPLY_CMD} dpl3.yml && " +
+                      f"{APPLY_CMD} {TRAIN_TICKET_DIR}/trainticket-gateway.yaml && " +
+                      " rm dpl1.yml dpl2.yml dpl3.yml ",
+        'undeploy_cmd': f"{DELETE_CMD} {TRAIN_TICKET_DIR}/ts-deployment-part1.yml && " +
+                      f"{DELETE_CMD} {TRAIN_TICKET_DIR}/ts-deployment-part2.yml && " +
+                      f"{DELETE_CMD} {TRAIN_TICKET_DIR}/ts-deployment-part3.yml "
     },
 }
 
@@ -460,9 +464,9 @@ def deploy_application(application):
                   " Did you run the deployment script?")
         sys.exit(util.EXIT_FAILURE)
     cmd = CONFIG_MATRIX[application]['deploy_cmd']
-    #cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
-    #cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
-    #cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
+    cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
+    cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
     return result
@@ -491,7 +495,7 @@ def main(args):
     if args.setup:
         return setup_application_deployment(args.platform, args.multizonal, args.application)
     if args.deploy_application:
-        return deploy_bookinfo(args.application)
+        return deploy_application(args.application)
     if args.remove_application:
         return remove_application(args.application)
     if args.deploy_addons:
