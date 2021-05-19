@@ -92,7 +92,7 @@ def run_fortio(url, platform, threads, qps, run_time, file_name):
     output_file = str(DATA_DIR.joinpath(f"{file_name}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} "
-    cmd += f"load -c {threads} -qps {qps} -jitter -t {run_time}s -json {output_file} "
+    cmd += f"load -c {threads} -qps {qps} -timeout 50s -t {run_time}s -json {output_file} "
     cmd += f"{url}"
     with open(output_file, "w") as f:
         fortio_res = util.exec_process(cmd,
@@ -234,18 +234,18 @@ if __name__ == '__main__':
                         "--threads",
                         dest="threads",
                         type=int,
-                        default=4,
+                        default=2,
                         help="Number of threads")
     parser.add_argument("-qps",
                         dest="qps",
                         type=int,
-                        default=50,
+                        default=10,
                         help="Query per second")
     parser.add_argument("-t",
                         "--time",
                         dest="time",
                         type=int,
-                        default=30,
+                        default=120,
                         help="Time for fortio")
     parser.add_argument("-cu",
                         "--use-custom",
