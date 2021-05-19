@@ -20,12 +20,16 @@ YAML_DIR = FILE_DIR.joinpath("yaml_crds")
 TOOLS_DIR = FILE_DIR.joinpath("tools")
 ONLINE_BOUTIQUE_DIR = FILE_DIR.joinpath("microservices-demo")
 HOTEL_RESERVATION_DIR = FILE_DIR.joinpath("DeathStarBench/hotelReservation")
+TRAIN_TICKET_DIR = FILE_DIR.joinpath("train-ticket/deployment/kubernetes-manifests/k8s-with-istio")
 PROJECT_ID = "dynamic-tracing"
 APPLY_CMD = "kubectl apply -f "
 DELETE_CMD = "kubectl delete -f "
 CONFIG_MATRIX = {
     'BK': {
         'minikube_startup_command': "minikube start --cpus=2 --memory 4096 --disk-size 32g",
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
+                                  --enable-autoscaling --min-nodes=3 \
+                                  --max-nodes=10 --num-nodes=5 ",
         'deploy_cmd': f"{APPLY_CMD} {YAML_DIR}/bookinfo-services.yaml && \
                         {APPLY_CMD} {YAML_DIR}/bookinfo-apps.yaml && \
                         {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/bookinfo-gateway.yaml && \
@@ -34,18 +38,32 @@ CONFIG_MATRIX = {
     },
     'OB': {
         'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
+                                  --enable-autoscaling --min-nodes=3 \
+                                  --max-nodes=10 --num-nodes=5 ",
         'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
         'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
     },
     'HR': {
         'minikube_startup_command': None,
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
+                                  --enable-autoscaling --min-nodes=3 \
+                                  --max-nodes=10 --num-nodes=7 ",
         'deploy_cmd': f"{APPLY_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
         'undeploy_cmd': f"{DELETE_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
     },
     'TT': {
         'minikube_startup_command': None,
-        'deploy_cmd': None, # TODO
-        'undeploy_cmd': None, #TODO
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
+                                  --enable-autoscaling --min-nodes=3 \
+                                  --max-nodes=15 --num-nodes=8 ",
+        'deploy_cmd': f"{APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml) && \
+                        {APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml) && \
+                        {APPLY_CMD} <({ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part3.yml) && \
+                        {APPLY_CMD} {TRAIN_TICKET_DIR}/trainticket-gateway.yaml ",
+        'undeploy_cmd': f"{DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part1.yml && \
+                        {DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part2.yml && \
+                        {DELETE_CMD} {TRAIN_TICKET_DIR}/deployment/kubernetes-manifests/quickstart-k8s/quickstart-ts-deployment-part3.yml "
     },
 }
 
@@ -142,7 +160,7 @@ def application_wait():
     for depl in deployments:
         wait_cmd = f"kubectl rollout status {depl} -w --timeout=180s"
         _ = util.exec_process(wait_cmd)
-    log.info("Bookinfo is ready.")
+    log.info("Application is ready.")
     return util.EXIT_SUCCESS
 
 def inject_failure():
@@ -168,16 +186,13 @@ def check_kubernetes_status():
 def start_kubernetes(platform, multizonal, application):
     if platform == "GCP":
         # 1. Create cluster enabled with Istio already
-        cmd = "gcloud container clusters create demo --enable-autoupgrade "
-        cmd += "--enable-autoscaling --min-nodes=3 "
-        cmd += "--max-nodes=10 --num-nodes=5 "
+        cmd = CONFIG_MATRIX[application]['gcloud_startup_command']
         if multizonal:
             cmd += "--region us-central1-a --node-locations us-central1-b "
             cmd += "us-central1-c us-central1-a "
         else:
             cmd += "--zone=us-central1-a "
         result = util.exec_process(cmd)
-        application_wait()
         cmd = f"gcloud services enable container.googleapis.com --project {PROJECT_ID} &&"
         cmd += f"gcloud services enable monitoring.googleapis.com cloudtrace.googleapis.com "
         cmd += f"clouddebugger.googleapis.com cloudprofiler.googleapis.com --project {PROJECT_ID}"
@@ -445,9 +460,9 @@ def deploy_application(application):
                   " Did you run the deployment script?")
         sys.exit(util.EXIT_FAILURE)
     cmd = CONFIG_MATRIX[application]['deploy_cmd']
-    cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
-    cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
-    cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
+    #cmd += f" && {APPLY_CMD} {YAML_DIR}/storage.yaml && "
+    #cmd += f"{APPLY_CMD} {YAML_DIR}/istio-config.yaml && "
+    #cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
     return result
