@@ -71,6 +71,7 @@ impl RootContext for HttpHeadersRoot {
     }
 }
 
+#[allow(dead_code)]
 struct HttpHeaders {
     context_id: u32,
     workload_name: String,
@@ -79,8 +80,8 @@ struct HttpHeaders {
 impl Context for HttpHeaders {}
 
 impl HttpContext for HttpHeaders {
-    fn on_http_request_headers(&mut self, num_headers: usize) -> Action {
-        let mut direction = self.get_traffic_direction();
+    fn on_http_request_headers(&mut self, _num_headers: usize) -> Action {
+        let direction = self.get_traffic_direction();
         if direction == TrafficDirection::Inbound {
             self.on_http_request_headers_inbound();
         } else if direction == TrafficDirection::Outbound {
@@ -92,8 +93,8 @@ impl HttpContext for HttpHeaders {
         Action::Continue
     }
 
-    fn on_http_response_headers(&mut self, num_headers: usize) -> Action {
-        let mut direction = self.get_traffic_direction();
+    fn on_http_response_headers(&mut self, _num_headers: usize) -> Action {
+        let direction = self.get_traffic_direction();
         if direction == TrafficDirection::Inbound {
             self.on_http_response_headers_inbound();
         } else if direction == TrafficDirection::Outbound {
@@ -109,7 +110,7 @@ impl HttpHeaders {
     // Retrieves the traffic direction from the configuration context.
     fn get_traffic_direction(&self) -> TrafficDirection {
         if let Some(direction_bytes) = self.get_property(vec!["listener_direction"]) {
-            let mut cast_bytes = <[u8; 8]>::try_from(direction_bytes);
+            let cast_bytes = <[u8; 8]>::try_from(direction_bytes);
             match cast_bytes {
                 Ok(byte_array) => return i64::from_ne_bytes(byte_array).into(),
                 Err(_e) => return 0i64.into(),
@@ -124,11 +125,11 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..1000 {
+       for _i in 0..1000 {
           c += a;
           d += b;
           e += a;
-          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, a);
+          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, e);
        }
        log::warn!("Traversed."); 
     }
@@ -138,11 +139,11 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..1000 {
+       for _i in 0..1000 {
           c += a;
           d += b;
           e += a;
-          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, a);
+          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, e);
        }
        log::warn!("Traversed."); 
     }
@@ -153,11 +154,11 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..1000 {
+       for _i in 0..1000 {
           c += a;
           d += b;
           e += a;
-          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, a);
+          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, e);
        }
        log::warn!("Traversed."); 
     }
@@ -168,11 +169,11 @@ impl HttpHeaders {
        let mut c = 0.0;
        let mut d = 0.0;
        let mut e = 0.0;
-       for i in 0..1000 {
+       for _i in 0..1000 {
           c += a;
           d += b;
           e += a;
-          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, a);
+          log::warn!("Current value for c: {} , d: {}, e: {}", c, d, e);
        }
        log::warn!("Traversed."); 
     }

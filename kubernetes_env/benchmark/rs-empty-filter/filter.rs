@@ -71,6 +71,7 @@ impl RootContext for HttpHeadersRoot {
     }
 }
 
+#[allow(dead_code)]
 struct HttpHeaders {
     context_id: u32,
     workload_name: String,
@@ -79,7 +80,7 @@ struct HttpHeaders {
 impl Context for HttpHeaders {}
 
 impl HttpContext for HttpHeaders {
-    fn on_http_request_headers(&mut self, num_headers: usize) -> Action {
+    fn on_http_request_headers(&mut self, _num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
         if direction == TrafficDirection::Inbound {
             self.on_http_request_headers_inbound();
@@ -92,7 +93,7 @@ impl HttpContext for HttpHeaders {
         Action::Continue
     }
 
-    fn on_http_response_headers(&mut self, num_headers: usize) -> Action {
+    fn on_http_response_headers(&mut self, _num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
         if direction == TrafficDirection::Inbound {
             self.on_http_response_headers_inbound();

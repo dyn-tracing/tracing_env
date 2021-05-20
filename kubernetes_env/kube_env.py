@@ -535,7 +535,7 @@ if __name__ == '__main__':
                         dest="application",
                         default="BK",
                         choices=["BK", "HR", "OB", "TT"],
-                        help="Which platform to run the scripts on."
+                        help="Which application to deploy."
                         "BK is bookinfo, HR is hotel reservation, and OB is online boutique")
     parser.add_argument("-m",
                         "--multi-zonal",
