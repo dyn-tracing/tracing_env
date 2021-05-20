@@ -68,7 +68,6 @@ def transform_fortio_data(filters):
     return dfs, title
 
 
-
 def plot(dfs, filters, title, plot_name, fortio=True):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
     plot_name += f" {timestamp}"
@@ -78,11 +77,11 @@ def plot(dfs, filters, title, plot_name, fortio=True):
         plt.legend(labels=filters)
         plt.title(f"Fortio: {title}")
     else:
-        fig, (ax1,ax2) = plt.subplots(1,2, figsize=(18,6))
-        dplot = sns.ecdfplot(dfs, ax= ax1)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
+        dplot = sns.ecdfplot(dfs, ax=ax1)
         dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
-        hplot = sns.histplot(dfs, ax= ax2)
-        hplot.set(xlabel="Latency (ms)", ylabel="Count")     
+        hplot = sns.histplot(dfs, ax=ax2)
+        hplot.set(xlabel="Latency (ms)", ylabel="Count")
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
@@ -104,8 +103,10 @@ def run_fortio(url, platform, request_type, threads, qps, run_time, file_name):
                                        stderr=subprocess.PIPE)
         return fortio_res
 
+
 def do_burst(url, platform, request_type, threads, qps, run_time):
     output = []
+
     def get_request(_):
         try:
             # What should timeout be?
@@ -149,7 +150,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     log.info("Gateway URL: %s", url)
     results = []
     filters = []
-    if kwargs.get("no_filter"):
+    if kwargs.get("no_filter") == "ON":
         filter_dirs.append("no_filter")
         filters.append("no_filter")
     custom = kwargs.get("custom")
@@ -193,7 +194,8 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
-            burst_res = do_burst(url, platform, request, threads, qps, run_time)
+            burst_res = do_burst(url, platform, request, threads, qps,
+                                 run_time)
             results.append(burst_res)
 
     if custom == "fortio":
@@ -207,7 +209,16 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
 
 def main(args):
-    return start_benchmark(args.filter_dirs, args.platform, args.threads, args.qps, args.time, no_filter=args.nf, output=args.output, subpath=args.subpath, request=args.request, custom=args.custom.lower())
+    return start_benchmark(args.filter_dirs,
+                           args.platform,
+                           args.threads,
+                           args.qps,
+                           args.time,
+                           no_filter=args.nf,
+                           output=args.output,
+                           subpath=args.subpath,
+                           request=args.request,
+                           custom=args.custom.lower())
 
 
 if __name__ == '__main__':
@@ -269,7 +280,7 @@ if __name__ == '__main__':
     parser.add_argument("-nf",
                         "--no-filter",
                         dest="nf",
-                        default=True,
+                        default="ON",
                         help="Benchmark with no filter")
     parser.add_argument("-o",
                         "--output",
