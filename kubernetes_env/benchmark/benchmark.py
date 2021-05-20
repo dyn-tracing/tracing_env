@@ -70,8 +70,8 @@ def transform_fortio_data(filters):
 
 
 def plot(dfs, filters, title, plot_name, fortio=True):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.time())
-    plot_name += timestamp
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+    plot_name += f" {timestamp}"
     if fortio:
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
@@ -104,14 +104,12 @@ def run_fortio(url, platform, request_type, threads, qps, run_time, file_name):
                                        stderr=subprocess.PIPE)
         return fortio_res
 
-
 def do_burst(url, platform, request_type, threads, qps, run_time):
     output = []
-    request_func = requests.get if request_type == "GET" else requests.post
-    def send_request():
+    def get_request(_):
         try:
             # What should timeout be?
-            res = requests_func(url, timeout=3)
+            res = requests.get(url, timeout=3)
             if res.status_code != 200:
                 return None
             ms = res.elapsed.total_seconds() * 1000
@@ -119,13 +117,22 @@ def do_burst(url, platform, request_type, threads, qps, run_time):
         except requests.exceptions.Timeout:
             pass
 
-    log.info("Starting burst...")
+    def post_request(_):
+        try:
+            res = requests.post(url, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
+        except requests.exceptions.Timeout:
+            pass
 
+    request_func = get_request if request_type == "GET" else post_request
     with ThreadPoolExecutor(max_workers=threads) as p:
         current = datetime.now()
         end = current + timedelta(seconds=run_time)
         while current < end:
-            results = list(p.map(partial(send_request, request_func), range(qps)))
+            results = list(p.map(request_func, range(qps)))
             current += timedelta(seconds=1)
             output += [result for result in results if result]
     return output
@@ -153,6 +160,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
             f.unlink()
 
     for (idx, fd) in enumerate(filter_dirs):
+        log.info("Benchmarking %s", fd)
         if fd != "no_filter":
             build_res = kube_env.build_filter(fd)
 
