@@ -234,15 +234,15 @@ def test_request_time(platform="MK", distributed=False):
     return util.EXIT_SUCCESS
 
 def main(args):
-    #test_get_service_name(args.platform)
-    #test_get_service_name(args.platform, True)
-    #test_height(args.platform)
-    #test_height(args.platform, True)
-    #test_request_size(args.platform)
-    #test_request_size(args.platform, True)
-    #test_connection_id(args.platform)
-    #test_request_time(args.platform)
-    #test_height_avg(args.platform)
+    test_get_service_name(args.platform)
+    test_get_service_name(args.platform, True)
+    test_height(args.platform)
+    test_height(args.platform, True)
+    test_request_size(args.platform)
+    test_request_size(args.platform, True)
+    test_connection_id(args.platform)
+    test_request_time(args.platform)
+    test_height_avg(args.platform)
 
 
 if __name__ == '__main__':
