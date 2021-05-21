@@ -234,18 +234,14 @@ def test_request_time(platform="MK", distributed=False):
     return util.EXIT_SUCCESS
 
 def main(args):
-    # TODO: Commented queries are not working yet
-    # UDF not implemented
-    # test_count(args.platform)
     #test_get_service_name(args.platform)
     #test_get_service_name(args.platform, True)
     #test_height(args.platform)
     #test_height(args.platform, True)
-    # Bug in serialization of data
     #test_request_size(args.platform)
     #test_request_size(args.platform, True)
     #test_connection_id(args.platform)
-    test_request_time(args.platform)
+    #test_request_time(args.platform)
     #test_height_avg(args.platform)
 
 
