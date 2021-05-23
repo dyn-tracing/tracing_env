@@ -148,12 +148,40 @@ def do_burst(url, platform, request_type, threads, qps, run_time):
         except requests.exceptions.Timeout:
             pass
 
+    def checkout(_):
+        try:
+            res = requests.post(url, params={'product_id': 'LS4PSXUNUM', 'quantity': 5}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            res2 = requests.post(url+"/checkout", params={
+                'email': 'someone@example.com',
+                'street_address': '1600 Amphitheatre Parkway',
+                'zip_code': '94043',
+                'city': 'Mountain View',
+                'state': 'CA',
+                'country': 'United States',
+                'credit_card_number': '4432-8015-6152-0454',
+                'credit_card_expiration_month': '1',
+                'credit_card_expiration_year': '2039',
+                'credit_card_cvv': '672',
+                },
+            timeout=3)
+            if res2.status_code != 200:
+                return None
+            ms2 = res2.elapsed.total_seconds() * 1000
+            return ms + ms2
+        except requests.exceptions.Timeout:
+            pass
+
     request_func = get_request
     if request_type == "POST":
         request_func = post_request
     if request_type == "CURRENCY":
         request_func = currency_request
     if request_type == "ADD_TO_CART":
+        request_func = add_to_cart
+    if request_type == "CHECKOUT":
         request_func = currency_request
 
     with ThreadPoolExecutor(max_workers=threads) as p:

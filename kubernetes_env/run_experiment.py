@@ -76,6 +76,12 @@ def online_boutique_experiment(platform, multizonal):
         output=output, no_filter= 'ON', subpath='/cart', request='ADD_TO_CART', custom='')
     stop_kubernetes(platform)
 
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_checkout"
+    start_benchmark([FILTER_DIR], platform, THREADS, QPS, RUNTIME,
+        output=output, no_filter= 'ON', subpath='/cart', request='CHECKOUT', custom='')
+    stop_kubernetes(platform)
+
 def train_ticket_experiment(multizonal):
     setup_application_deployment('GCP', multizonal, 'TT')
 
