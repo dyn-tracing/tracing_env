@@ -328,7 +328,7 @@ def build_filter(filter_dir):
     return result
 
 
-def undeploy_filter():
+def undeploy_filter(platform, multizonal):
     # delete the config map
     delete_config_map()
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
@@ -336,7 +336,7 @@ def undeploy_filter():
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the filter.")
     # restore the original bookinfo
-    return deploy_bookinfo()
+    return deploy_application()
 
 def patch_application():
     cmd = "kubectl get deploy -o name"

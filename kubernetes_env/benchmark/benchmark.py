@@ -128,7 +128,34 @@ def do_burst(url, platform, request_type, threads, qps, run_time):
         except requests.exceptions.Timeout:
             pass
 
-    request_func = get_request if request_type == "GET" else post_request
+    def currency_request(_):
+        try:
+            res = requests.post(url, params={'currency_code': 'USD'}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
+        except requests.exceptions.Timeout:
+            pass
+
+    def add_to_cart(_):
+        try:
+            res = requests.post(url, params={'product_id': 'LS4PSXUNUM', 'quantity': 5}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
+        except requests.exceptions.Timeout:
+            pass
+
+    request_func = get_request
+    if request_type == "POST":
+        request_func = post_request
+    if request_type == "CURRENCY":
+        request_func = currency_request
+    if request_type == "ADD_TO_CART":
+        request_func = currency_request
+
     with ThreadPoolExecutor(max_workers=threads) as p:
         current = datetime.now()
         end = current + timedelta(seconds=run_time)
@@ -160,6 +187,11 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         if f.is_file():
             f.unlink()
 
+    # make sure no_filter happens at the beginning
+    if 'no_filter' in filter_dirs:
+        filter_dirs.remove('no_filter')
+        filter_dirs.insert(0, 'no_filter')
+
     for (idx, fd) in enumerate(filter_dirs):
         log.info("Benchmarking %s", fd)
         if fd != "no_filter":
@@ -184,7 +216,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
             filters.append(fname)
         log.info("Warming up...")
         for i in range(10):
-            requests.get(url)
+            requests.get(f"http://{gateway_url}")
         if custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(url, platform, request, threads, qps,
