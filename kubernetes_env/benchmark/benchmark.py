@@ -199,26 +199,25 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
+
+    results = []
+    filters = []
+    custom = kwargs.get("custom")
+    request = kwargs.get("request")
+    output = kwargs.get("output")
+    # make sure no_filter happens at the beginning
+    if kwargs.get("no_filter") == "ON":
+        filter_dirs.insert(0, "no_filter")
+        filters.insert(0, "no_filter")
+
+
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     path = kwargs.get("subpath")
     url = f"http://{gateway_url}/{path}"
     log.info("Gateway URL: %s", url)
-    results = []
-    filters = []
-    if kwargs.get("no_filter") == "ON":
-        filter_dirs.append("no_filter")
-        filters.append("no_filter")
-    custom = kwargs.get("custom")
-    request = kwargs.get("request")
-    output = kwargs.get("output")
     for f in DATA_DIR.glob("*"):
         if f.is_file():
             f.unlink()
-
-    # make sure no_filter happens at the beginning
-    if 'no_filter' in filter_dirs:
-        filter_dirs.remove('no_filter')
-        filter_dirs.insert(0, 'no_filter')
 
     for (idx, fd) in enumerate(filter_dirs):
         log.info("Benchmarking %s", fd)
@@ -239,7 +238,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
 
             # wait for kubernetes set up to finish
-            time.sleep(120)
+            time.sleep(20)
             fname = Path(fd).name
             filters.append(fname)
         log.info("Warming up...")

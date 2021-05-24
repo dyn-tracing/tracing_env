@@ -39,24 +39,21 @@ CONFIG_MATRIX = {
     'OB': {
         'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=5 ",
+                                  --num-nodes=7 ",
         'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
         'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
     },
     'HR': {
         'minikube_startup_command': None,
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=7 ",
+                                  --num-nodes=7 ",
         'deploy_cmd': f"{APPLY_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
         'undeploy_cmd': f"{DELETE_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
     },
     'TT': {
         'minikube_startup_command': None,
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=15 --num-nodes=8 ",
+                                  --num-nodes=8 ",
         'deploy_cmd': f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml > dpl1.yml && " +
                       f"{APPLY_CMD} dpl1.yml && " +
                       f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml > dpl2.yml && " +
