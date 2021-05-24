@@ -315,15 +315,16 @@ def build_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-    # Also build the aggregation filter
-    cmd = "cargo +nightly build -Z unstable-options "
-    cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins "
-    cmd += f"--target-dir {filter_dir}/target "
-    cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    # Also build the aggregation filter if it's not an empty or loop filter
+    if 'rs-empty-filter' not in str(filter_dir) and 'rs-loop-filter' not in str(filter_dir):
+        cmd = "cargo +nightly build -Z unstable-options "
+        cmd += "--target=wasm32-unknown-unknown --release "
+        cmd += f"--out-dir {filter_dir}/wasm_bins "
+        cmd += f"--target-dir {filter_dir}/target "
+        cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
     log.info("Build successful!")
     return result
 
