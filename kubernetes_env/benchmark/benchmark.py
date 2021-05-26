@@ -9,7 +9,6 @@ import requests
 import time
 import seaborn as sns
 import pandas as pd
-from functools import partial
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
