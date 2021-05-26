@@ -310,7 +310,7 @@ if __name__ == '__main__':
     parser.add_argument("-fds",
                         "--filter-dirs",
                         dest="filter_dirs",
-                        nargs="+",
+                        nargs="*",
                         type=str,
                         default=[str(FILTER_DIR)],
                         help="List of directories of the filter")
@@ -349,7 +349,7 @@ if __name__ == '__main__':
     parser.add_argument("-sp",
                         "--subpath",
                         dest="subpath",
-                        default="productpage",
+                        default="index.html",
                         help="Path of the application")
     parser.add_argument("-r",
                         "--request",

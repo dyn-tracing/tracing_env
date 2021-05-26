@@ -90,6 +90,7 @@ fn fetch_data_from_headers(ctx: &HttpHeaders, request_type: HttpType) -> Ferried
     if let Some(ferried_data_str) = data_str_opt {
         match serde_json::from_str(&ferried_data_str) {
             Ok(fd) => {
+                log::warn!("Successfully parsed ferried_data from header.");
                 return fd;
             }
             Err(e) => {
@@ -124,10 +125,12 @@ fn get_shared_data(trace_id: &str, ctx: &HttpHeaders) -> Option<FerriedData> {
 fn store_data(data_to_store: &mut FerriedData, trace_id: &str, ctx: &HttpHeaders) {
     // Merge with data that is already present.
     let stored_data_opt = get_shared_data(&trace_id, ctx);
+    /*
     if stored_data_opt.is_some() {
         let stored_data_old = stored_data_opt.unwrap();
         data_to_store.merge(stored_data_old);
     }
+    */
 
     // Convert to string, then to bytes.
     let stored_data_str_opt = data_to_str(&data_to_store);
@@ -205,11 +208,35 @@ pub struct HttpHeaders {
 }
 
 impl Context for HttpHeaders {
+    /// Process the callback from any http calls the filter makes for debugging.
+    /// This is usually from storage.
+    /// TODO: This is not working reliably yet. Needs some investigating.
+    fn on_http_call_response(
+        &mut self,
+        _token_id: u32,
+        _num_headers: usize,
+        body_size: usize,
+        _: usize,
+    ) {
+        log::warn!("Received response from storage");
+        if let Some(body) = self.get_http_call_response_body(0, body_size) {
+            log::warn!("Storage body: {:?}", body);
+        }
+        for (name, value) in &self.get_http_response_headers() {
+            log::warn!("Storage Header - {:?}: {:?}", name, value);
+        }
+    }
 }
 
 impl HttpContext for HttpHeaders {
     fn on_http_request_headers(&mut self, num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
+        log::warn!(
+            "{}: Request Header Direction {}",
+            self.workload_name,
+            direction
+        );
+        self.print_headers(HttpType::Request);
         let result: Result<(), String>;
         if direction == TrafficDirection::Inbound {
             result = self.on_http_request_headers_inbound(num_headers);
@@ -228,6 +255,12 @@ impl HttpContext for HttpHeaders {
 
     fn on_http_response_headers(&mut self, num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
+        log::warn!(
+            "{}: Response Header Direction {}",
+            self.workload_name,
+            direction
+        );
+        self.print_headers(HttpType::Response);
         let result: Result<(), String>;
         if direction == TrafficDirection::Inbound {
             result = self.on_http_response_headers_inbound(num_headers);
@@ -262,10 +295,25 @@ impl HttpHeaders {
         return 0i64.into();
     }
 
+    fn print_headers(&self, request_type: HttpType) {
+        if request_type == HttpType::Request {
+            for (name, value) in &self.get_http_request_headers() {
+                log::warn!("#{} -> {}: {}", self.context_id, name, value);
+            }
+        } else if request_type == HttpType::Response {
+            for (name, value) in &self.get_http_response_headers() {
+                log::warn!("#{} -> {}: {}", self.context_id, name, value);
+            }
+        } else {
+            log::error!("Unsupported http type {:?}", request_type);
+        }
+    }
+
     fn on_http_request_headers_inbound(&mut self, _num_headers: usize) -> Result<(), String> {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request inbound: x-request-id not found in header!")?;
+        log::warn!("Request inbound: Using trace id {}!", trace_id);
 
         // Fetch ferried data
         let mut ferried_data = fetch_data_from_headers(self, HttpType::Request);
@@ -280,6 +328,7 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request outbound: x-request-id not found in header!")?;
+        log::warn!("Request outbound: Using trace id {}!", trace_id);
         Ok(())
     }
 
@@ -287,6 +336,7 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response inbound: x-request-id not found in header!")?;
+        log::warn!("Response inbound: Using trace id {}!", trace_id);
 
         // TODO:  Do not really understand the purpose of this yet
         let mut my_indexmap = IndexMap::new();
@@ -330,7 +380,7 @@ impl HttpHeaders {
 
         if self.workload_name == "productpage-v1" && trace_prop_sat {
             // 2. calculate UDFs and store result, and check trace level properties
-
+            /*
             if let Some(mapping) =
                 find_mapping_shamir_centralized(&stored_data.trace_graph, &self.target_graph)
             {
@@ -357,6 +407,7 @@ impl HttpHeaders {
             } else {
                 log::error!("Mapping not found");
             }
+            */
         } else {
             log::warn!(
                 "Node {:?} is not the expected root node {:?}",
@@ -371,6 +422,7 @@ impl HttpHeaders {
         let stored_data_str =
             data_to_str(&stored_data).ok_or_else(|| "Failed to convert data to string.")?;
         // Set the header
+        log::warn!("Attaching {:?}", stored_data_str);
         self.set_http_response_header("ferried_data", Some(&stored_data_str));
         Ok(())
     }
@@ -379,6 +431,7 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response outbound: x-request-id not found in header!")?;
+        log::warn!("Response outbound: Using trace id {}!", trace_id);
         // Fetch ferried data
         let mut ferried_data = fetch_data_from_headers(self, HttpType::Response);
 

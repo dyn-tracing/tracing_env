@@ -21,6 +21,7 @@ BENCHMARK_DIR = FILE_DIR.joinpath("benchmark")
 COMPILER_DIR = FILE_DIR.joinpath("tracing_compiler")
 FILTER_DIR = FILE_DIR.joinpath("filter_service_name")
 NO_ISOMORPHISM_FILTER_DIR = FILE_DIR.joinpath("filter_no_isomorphism")
+NO_MERGE_FILTER_DIR = FILE_DIR.joinpath("filter_no_merge")
 EMPTY_FILTER_DIR = BENCHMARK_DIR.joinpath("rs-empty-filter") 
 
 TOOLS_DIR = FILE_DIR.joinpath("tools")
@@ -28,43 +29,39 @@ PROJECT_ID = "dynamic-tracing"
 
 QPS = 10
 THREADS = 2
-RUNTIME = 50
+RUNTIME = 500
 
-def application_experiment(platform, multizonal, application, empty_filter, no_isomorphism_filter):
+def application_experiment(platform, multizonal, application, empty_filter, arg_no_filter, filter_dirs):
     if application == "BK":
-        bookinfo_experiment(platform, multizonal, empty_filter, no_isomorphism_filter)
+        bookinfo_experiment(platform, multizonal, empty_filter, arg_no_filter, filter_dirs)
     if application == "OB":
-        online_boutique_experiment(platform, multizonal, empty_filter, no_isomorphism_filter)
+        online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter, filter_dirs)
     if application == "TT":
         if platform == "MK":
             log.error("Train ticket is not supported on minikube")
         elif platform == "GCP": 
-            train_ticket_experiment(multizonal, empty_filter, no_isomorphism_filter)
+            train_ticket_experiment(multizonal, empty_filter, arg_no_filter, filter_dirs)
 
-def bookinfo_experiment(platform, multizonal, empty_filter, no_isomorphism_filter):
-    filters = [FILTER_DIR]
+def bookinfo_experiment(platform, multizonal, empty_filter, arg_no_filter, filter_dirs):
+    filters = filter_dirs
+    if arg_no_filter:
+        filters = []
     no_filter = 'ON'
     if empty_filter:
         filters.append(EMPTY_FILTER_DIR)
-        no_filter = 'OFF'
-    if no_isomorphism_filter:
-        filters.append(NO_ISOMORPHISM_FILTER_DIR)
-        no_filter = 'OFF'
     setup_application_deployment(platform, multizonal, "BK")
     output = platform + "bookinfo"
     start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
         output=output, no_filter= no_filter, subpath='productpage', request='GET', custom='')
     stop_kubernetes(platform)
 
-def online_boutique_experiment(platform, multizonal, empty_filter, no_isomorphism_filter):
-    filters = [FILTER_DIR]
+def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter, filter_dirs):
+    filters = filter_dirs
+    if arg_no_filter:
+        filters = []
     no_filter = 'ON'
     if empty_filter:
         filters.append(EMPTY_FILTER_DIR)
-        no_filter = 'OFF'
-    if no_isomorphism_filter:
-        filters.append(NO_ISOMORPHISM_FILTER_DIR)
-        no_filter = 'OFF'
 
     #setup_application_deployment(platform, multizonal, "OB")
     #output = platform + "online_boutique_index"
@@ -74,36 +71,36 @@ def online_boutique_experiment(platform, multizonal, empty_filter, no_isomorphis
     #stop_kubernetes(platform)
 
 
+    #setup_application_deployment(platform, multizonal, "OB")
+    #output = platform + "online_boutique_set_currency"
+    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+    #    output=output, no_filter= no_filter, subpath='setCurrency', request='CURRENCY', custom='')
+    #time.sleep(60)
+    #stop_kubernetes(platform)
+
+
     setup_application_deployment(platform, multizonal, "OB")
-    output = platform + "online_boutique_set_currency"
+    output = platform + "online_boutique_browse_product"
     start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter= no_filter, subpath='setCurrency', request='CURRENCY', custom='')
-    time.sleep(60)
+        output=output, no_filter=no_filter, subpath='product/6E92ZMYYFZ', request='GET', custom='')
     stop_kubernetes(platform)
 
+    time.sleep(60)
 
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_browse_product"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='product/6E92ZMYYFZ', request='GET', custom='')
-    #stop_kubernetes(platform)
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_view_cart"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+        output=output, no_filter=no_filter, subpath='cart', request='GET', custom='')
+    stop_kubernetes(platform)
 
+    time.sleep(60)
+
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_add_to_cart"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+        output=output, no_filter=no_filter, subpath='cart', request='ADD_TO_CART', custom='')
     #time.sleep(60)
-
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_view_cart"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='cart', request='GET', custom='')
-    #stop_kubernetes(platform)
-
-    #time.sleep(60)
-
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_add_to_cart"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='cart', request='ADD_TO_CART', custom='')
-    #time.sleep(60)
-    #stop_kubernetes(platform)
+    stop_kubernetes(platform)
 
     #time.sleep(60)
 
@@ -115,16 +112,14 @@ def online_boutique_experiment(platform, multizonal, empty_filter, no_isomorphis
     #time.sleep(60)
     #stop_kubernetes(platform)
 
-def train_ticket_experiment(multizonal, empty_filter, no_isomorphism_filter):
-    filters = [FILTER_DIR]
+def train_ticket_experiment(multizonal, empty_filter, arg_no_filter, filter_dirs):
+    filters = filter_dirs
+    if arg_no_filter:
+        filters = []
     no_filter = 'ON'
     if empty_filter:
         filters.append(EMPTY_FILTER_DIR)
         no_filter = 'OFF'
-    if no_isomorphism_filter:
-        filters.append(NO_ISOMORPHISM_FILTER_DIR)
-        no_filter = 'OFF'
-
 
     #setup_application_deployment('GCP', multizonal, 'TT')
     output = "GCPtrain_ticket_home"
@@ -143,11 +138,28 @@ def train_ticket_experiment(multizonal, empty_filter, no_isomorphism_filter):
 def main(args):
     # single commands to execute
     if args.application:
-        return application_experiment(args.platform, args.multizonal, args.application, args.empty_filter, args.no_isomorphism_filter)
+        return application_experiment(args.platform,
+                                      args.multizonal,
+                                      args.application,
+                                      args.empty_filter,
+                                      args.no_filter,
+                                      args.filter_dirs)
     else:
-        bookinfo_experiment(args.platform, args.multizonal, args.empty_filter, args.no_isomorphism_filter)
-        online_boutique_experiment(args.platform, args.multizonal, args.empty_filter, args.no_isomorphism_filter)
-        #train_ticket_experiment(args.platform, args.multizonal, args.emtpy_filter, args.no_isomorphism_filter)
+        bookinfo_experiment(args.platform,
+                            args.multizonal,
+                            args.empty_filter,
+                            args.no_filter,
+                            args.filter_dirs)
+        online_boutique_experiment(args.platform,
+                                   args.multizonal,
+                                   args.empty_filter,
+                                   args.no_filter,
+                                   args.filter_dirs)
+        train_ticket_experiment(args.multizonal,
+                                args.emtpy_filter,
+                                args.no_isomorphism_filter,
+                                args.no_filter,
+                                args.filter_dirs)
 
 
 if __name__ == '__main__':
@@ -176,11 +188,18 @@ if __name__ == '__main__':
                         dest="empty_filter",
                         action="store_true",
                         help="Add empty filter to compare against")
-    parser.add_argument("-i",
-                        "--no_isomorphism_filter",
-                        dest="no_isomorphism_filter",
+    parser.add_argument("-fds",
+                    "--filter-dirs",
+                    dest="filter_dirs",
+                    nargs="*",
+                    type=str,
+                    default=[str(FILTER_DIR)],
+                    help="List of directories of the filter")
+    parser.add_argument("-nf",
+                        "--no_filter",
+                        dest="no_filter",
                         action="store_true",
-                        help="Add no isomorphism filter to compare against")
+                        help="Benchmark without using our system at all")
     parser.add_argument("-a",
                         "--application",
                         dest="application",
