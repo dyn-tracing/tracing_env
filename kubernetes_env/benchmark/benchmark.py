@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-import argparse
-import logging
+import argparse import logging
 import subprocess
 import os
 import sys
@@ -86,10 +85,21 @@ def plot(dfs, filters, title, plot_name, fortio=True):
     log.info("Finished plotting. Check out the graphs directory!")
     return util.EXIT_SUCCESS
 
-
-def run_fortio(url, platform, request_type, threads, qps, run_time, file_name):
+def run_locust(url, platform, users, spawn_rate, run_time, filename):
+    utils.check_dir(DATA_DIR)
     util.check_dir(DATA_DIR)
-    output_file = str(DATA_DIR.joinpath(f"{file_name}.json"))
+    output_file = str(DATA_DIR.joinpath(f"{filename}.csv"))
+    pathandname = str(FILE_DIR.joinpath(f"{filename}.py"))
+    cmd = f"locust -f {pathandname} -H {url}"
+    cmd += f" -u {users} -r {spawn_rate} -t {run_time}s --headless"
+    cmd += " --csv {filename}"
+    with open(output_file, "w") as f:
+        res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return res
+
+def run_fortio(url, platform, request_type, threads, qps, run_time, filename):
+    util.check_dir(DATA_DIR)
+    output_file = str(DATA_DIR.joinpath(f"{filename}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} load "
     if request_type == "POST":
@@ -97,13 +107,12 @@ def run_fortio(url, platform, request_type, threads, qps, run_time, file_name):
     cmd += f"-c {threads} -qps {qps} -timeout 50s -t {run_time}s -json {output_file} "
     cmd += f"{url}"
     with open(output_file, "w") as f:
-        fortio_res = util.exec_process(cmd,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
-        return fortio_res
+        res = util.exec_process(cmd, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+        return res
 
 
-def do_burst(url, platform, request_type, threads, qps, run_time):
+def run_loadgen(url, platform, request_type, threads, qps, run_time):
     output = []
 
     def get_request(_):
@@ -184,7 +193,31 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         log.info("Warming up...")
         for i in range(10):
             requests.get(url)
-        if custom == "fortio":
+        if custom == "locust":
+            application = kwargs.get("application")
+            users = kwargs.get("users")
+            spawn_rate = kwargs.get("spawn_rate")
+            if application == "BK":
+              res = run_locust(url, platform, users, spawn_rate, run_time, "bookinfo_benchmark")
+              if res != util.EXIT_SUCCESS:
+                log.error("Error benchmarking %s application", application)
+                return util.EXIT_FAILURE
+            elif application == "HR":
+              pass
+            elif application == "OB":
+              res = run_locust(url, platform, users, spawn_rate, run_time, "online_boutique_benchmark")
+              if res != util.EXIT_SUCCESS:
+                log.error("Error benchmarking %s application", application)
+                return util.EXIT_FAILURE
+            elif application = "TT":
+              res = run_locust(url, platform, users, spawn_rate, run_time, "train_ticket_benchmark")
+              if res != util.EXIT_SUCCESS:
+                log.error("Error benchmarking %s application", application)
+                return util.EXIT_FAILURE
+
+            else:
+              log.error("Provided application does not exist")
+        elif custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(url, platform, request, threads, qps,
                                     run_time, fname)
@@ -193,7 +226,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
-            burst_res = do_burst(url, platform, request, threads, qps,
+            burst_res = run_loadgen(url, platform, request, threads, qps,
                                  run_time)
             results.append(burst_res)
 
@@ -213,6 +246,9 @@ def main(args):
                            args.threads,
                            args.qps,
                            args.time,
+                           application=args.application,
+                           users=args.users,
+                           spawn_rate=args.spawn_rate,
                            no_filter=args.nf,
                            output=args.output,
                            subpath=args.subpath,
@@ -260,7 +296,20 @@ if __name__ == '__main__':
                         type=int,
                         default=2,
                         help="Number of threads")
+   parser.add_argument("-u",
+                        "--users",
+                        dest="users",
+                        type=int,
+                        default=10,
+                        help="Number of users to spawn")
+   parser.add_argument("-sr",
+                        "--spawn-rate",
+                        dest="spawn_rate",
+                        type=int,
+                        default=5,
+                        help="Rate to spawn users")
     parser.add_argument("-qps",
+                        "--query-per-second",
                         dest="qps",
                         type=int,
                         default=10,
@@ -271,6 +320,13 @@ if __name__ == '__main__':
                         type=int,
                         default=120,
                         help="Time for fortio")
+    parser.add_argument("-a",
+                        "--application",
+                        dest="applicaiton",
+                        default="BK",                                           
+                        choices=["BK", "HR", "OB", "TT"],                       
+                     help="Which application to deploy."                     
+                         "BK: bookinfo, HR: hotel reservation, OB: online boutique, TT: train ticket")
     parser.add_argument("-cu",
                         "--use-custom",
                         dest="custom",
