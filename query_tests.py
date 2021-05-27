@@ -184,23 +184,64 @@ def test_request_size(platform="MK", distributed=False):
     storage_content = storage.query_storage()
     text = storage_content.text
     result_set = process_response(text)
-    assert result_set.len() != 0
+    assert len(result_set) != 0
 
     storage.kill_storage_mon(storage_proc)
     log.info("request_size test succeeded.")
     return util.EXIT_SUCCESS
 
+def test_connection_id(platform="MK", distributed=False):
+    # generate the filter code
+    result = generate_filter("connection_id.cql", [], distributed)
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap(distributed)
+
+    # first request
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert len(result_set) != 0
+
+    storage.kill_storage_mon(storage_proc)
+    log.info("connection_id test succeeded.")
+    return util.EXIT_SUCCESS
+
+def test_request_time(platform="MK", distributed=False):
+    # generate the filter code
+    result = generate_filter("request_time.cql", [], distributed)
+    assert result == util.EXIT_SUCCESS
+
+    # bootstrap the filter
+    storage_proc = bootstrap(distributed)
+
+    # first request
+    send_time = time.time_ns()
+    log.info("Sending request #1")
+    requests.send_request(platform)
+    storage_content = storage.query_storage()
+    text = storage_content.text
+    result_set = process_response(text)
+    assert len(result_set) == 1
+    for result in result_set:
+        assert int(result) > send_time
+        assert int(result) < time.time_ns()
+    storage.kill_storage_mon(storage_proc)
+    log.info("request_time test succeeded.")
+    return util.EXIT_SUCCESS
 
 def main(args):
-    # TODO: Commented queries are not working yet
-    # UDF not implemented
-    # test_count(args.platform)
-    #test_get_service_name(args.platform)
-    #test_get_service_name(args.platform, True)
-    #test_height(args.platform)
-    #test_height(args.platform, True)
-    # Bug in serialization of data
-    #test_request_size(args.platform)
+    test_get_service_name(args.platform)
+    test_get_service_name(args.platform, True)
+    test_height(args.platform)
+    test_height(args.platform, True)
+    test_request_size(args.platform)
+    test_request_size(args.platform, True)
+    test_connection_id(args.platform)
+    test_request_time(args.platform)
     test_height_avg(args.platform)
 
 
