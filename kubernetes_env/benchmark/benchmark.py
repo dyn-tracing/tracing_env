@@ -37,17 +37,58 @@ APPLICATIONS = {
 def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
 
+def plot(dfs, filters, title, plot_name, custom):
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+    plot_name += f" {timestamp}"
+    if custom == "locust":
+        for df in dfs:
+            sns.lineplot(data=df, x="Latency (ms)", y="Percent")
+        plt.legend(labels=filters)
+        plt.title("Locust")
+    elif custom == "fortio":
+        for df in dfs:
+            sns.lineplot(data=df, x="Latency (ms)", y="Percent")
+        plt.legend(labels=filters)
+        plt.title(f"Fortio: {title}")
+    elif custom == "loadgen":
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
+        dplot = sns.ecdfplot(dfs, ax=ax1)
+        dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
+        hplot = sns.histplot(dfs, ax=ax2)
+        hplot.set(xlabel="Latency (ms)", ylabel="Count")
+    else:
+      log.info("No valid load generator supplied!")
+      return util.EXIT_FAILURE
 
-def transform_loadgen_data(filters, data):
-    combined_data = {}
-    for fname, loadgen in zip(filters, data):
-        combined_data[fname] = loadgen
-    return pd.DataFrame(combined_data, columns=filters)
+    util.check_dir(GRAPHS_DIR)
+    plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
+    log.info("Finished plotting. Check out the graphs directory!")
+    return util.EXIT_SUCCESS
 
+def transform_locust_data(filters, application, path):
+    dfs = []
+    for fname in filters:
+      csv_file_dir = str(FILE_DIR.joinpath(f"{application}_{fname}.csv"))
+      df = pd.read_csv(csv_file_dir)
+      latency = []
+      percentages = [50, 66, 75, 80, 90, 95, 98, 99, 100]
+      path_df = df.loc[df["Name"] == f"/{path}"]
+      for percentile in percentages:
+        key = str(percentile)
+        latency.append(path_df[f"{key}%"][0])
+      dfs.append(pd.DataFrame({
+        "Latency (ms)": latency,
+        "Percent": percentages
+      }))
+    return dfs
+
+def run_locust(url, platform, command_args, application, filename):
+    py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {application_filename}"
+    res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return res
 
 def transform_fortio_data(filters):
-    names = []
-    json_data = []
     dfs = []
     title = ""
     for fname in filters:
@@ -71,34 +112,6 @@ def transform_fortio_data(filters):
             dfs.append(df)
     return dfs, title
 
-
-def plot(dfs, filters, title, plot_name, fortio=True):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
-    plot_name += f" {timestamp}"
-    if fortio:
-        for df in dfs:
-            sns.lineplot(data=df, x="Latency (ms)", y="Percent")
-        plt.legend(labels=filters)
-        plt.title(f"Fortio: {title}")
-    else:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
-        dplot = sns.ecdfplot(dfs, ax=ax1)
-        dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
-        hplot = sns.histplot(dfs, ax=ax2)
-        hplot.set(xlabel="Latency (ms)", ylabel="Count")
-    util.check_dir(GRAPHS_DIR)
-    plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
-    log.info("Finished plotting. Check out the graphs directory!")
-    return util.EXIT_SUCCESS
-
-def run_locust(url, platform, command_args, filename):
-    util.check_dir(DATA_DIR)
-    output_file = str(DATA_DIR.joinpath(f"{filename}.csv"))
-    cmd = f"locust -f {filename}.py -H {url} {command_args} --csv {filename}"
-    with open(output_file, "w") as f:
-        res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return res
-
 def run_fortio(url, platform, threads, qps, run_time, command_args, filename):
     util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.json"))
@@ -112,6 +125,11 @@ def run_fortio(url, platform, threads, qps, run_time, command_args, filename):
                                     stderr=subprocess.PIPE)
         return res
 
+def transform_loadgen_data(filters, data):
+    combined_data = {}
+    for fname, loadgen in zip(filters, data):
+        combined_data[fname] = loadgen
+    return pd.DataFrame(combined_data, columns=filters)
 
 def run_loadgen(url, platform, threads, qps, run_time, request_type):
     output = []
@@ -171,6 +189,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
+
     custom = kwargs.get("custom")
     request = kwargs.get("request")
     output = kwargs.get("output")
@@ -181,6 +200,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     path = kwargs.get("subpath")
     url = f"http://{gateway_url}/{path}"
     log.info("Gateway URL: %s", url)
+
     results = []
     filters = []
 
@@ -210,7 +230,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
               log.error("Provided application does not exists")
               return util.EXIT_FAILURE
             log.info("Running locust...")
-            res = run_locust(f"http://{gateway_url}", platform, command_args, application)
+            res = run_locust(f"http://{gateway_url}", platform, command_args, application, fname)
             if res != util.EXIT_SUCCESS:
               log.error("Error benchmarking %s application", application)
               return util.EXIT_FAILURE
@@ -229,16 +249,16 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
     # Plot functions
     if custom == "locust":
-        # plot
-        pass
+        locust_df = transform_locust_data(filters, application, path)
+        return plot(locust_df, filters, "", output, "locust")
     elif custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
         np.save("fortio", fortio_df)
-        return plot(fortio_df, filters, title, output, fortio=True)
+        return plot(fortio_df, filters, title, output, "fortio")
     else:
         loadgen_df = transform_loadgen_data(filters, results)
         np.save("output", loadgen_df)
-        return plot(loadgen_df, filters, "", output, fortio=False)
+        return plot(loadgen_df, filters, "", output, "loadgen")
 
 
 def main(args):
