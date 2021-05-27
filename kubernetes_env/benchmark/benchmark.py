@@ -99,14 +99,13 @@ def run_locust(url, platform, custom_args, filename):
         res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return res
 
-def run_fortio(url, platform, request_type, threads, qps, run_time, filename):
+def run_fortio(url, platform, threads, qps, run_time, custom_args, filename):
     util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} load "
-    if request_type == "POST":
-        cmd += "-content-type POST "
     cmd += f"-c {threads} -qps {qps} -timeout 50s -t {run_time}s -json {output_file} "
+    cmd += " {custom_args} "
     cmd += f"{url}"
     with open(output_file, "w") as f:
         res = util.exec_process(cmd, stdout=subprocess.PIPE,
@@ -114,7 +113,7 @@ def run_fortio(url, platform, request_type, threads, qps, run_time, filename):
         return res
 
 
-def run_loadgen(url, platform, request_type, threads, qps, run_time):
+def run_loadgen(url, platform, threads, qps, run_time, request_type):
     output = []
 
     def get_request(_):
@@ -172,6 +171,12 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
+    custom = kwargs.get("custom")
+    request = kwargs.get("request")
+    output = kwargs.get("output")
+    custom_args = " ".join(kwargs.get("custom_args"))
+    application = APPLICATIONS.get(kwargs.get("application"))i
+
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     path = kwargs.get("subpath")
     url = f"http://{gateway_url}/{path}"
@@ -182,9 +187,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     if kwargs.get("no_filter") == "ON":
         filter_dirs.append("no_filter")
         filters.append("no_filter")
-    custom = kwargs.get("custom")
-    request = kwargs.get("request")
-    output = kwargs.get("output")
+
     for f in DATA_DIR.glob("*"):
         if f.is_file():
             f.unlink()
@@ -197,33 +200,38 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
               return util.EXIT_FAILURE
             fname = Path(filter_dir).name
             filters.append(fname)
+
         log.info("Warming up...")
         for i in range(10):
             requests.get(url)
+
         if custom == "locust":
-            application = APPLICATIONS.get(kwargs.get("application"))
-            custom_args = " ".join(kwargs.get("custom_args"))
             if not application:
               log.error("Provided application does not exists")
               return util.EXIT_FAILURE
+            log.info("Running locust...")
             res = run_locust(url, platform, custom_args, application)
             if res != util.EXIT_SUCCESS:
               log.error("Error benchmarking %s application", application)
               return util.EXIT_FAILURE
         elif custom == "fortio":
             log.info("Running fortio...")
-            fortio_res = run_fortio(url, platform, request, threads, qps,
-                                    run_time, fname)
+            fortio_res = run_fortio(url, platform, threads, qps,
+                                    run_time, custom_args, fname)
             if fortio_res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking for %s", fd)
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
-            burst_res = run_loadgen(url, platform, request, threads, qps,
-                                 run_time)
+            burst_res = run_loadgen(url, platform, threads, qps,
+                                 run_time, request)
             results.append(burst_res)
 
-    if custom == "fortio":
+    # Plot functions
+    if custom == "locust":
+        # plot
+        pass
+    elif custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
         np.save("fortio", fortio_df)
         return plot(fortio_df, filters, title, output, fortio=True)
