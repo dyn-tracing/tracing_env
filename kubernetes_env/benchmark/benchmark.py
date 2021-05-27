@@ -27,7 +27,12 @@ FILTER_DIR = FILE_DIR.joinpath("rs-empty-filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
-
+APPLICATIONS = {
+  "BK": "bookinfo_benchmark",
+  "HR": "",
+  "OB": "online_boutique_benchmark",
+  "TT": "train_ticket_benchmark"
+}
 
 def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
@@ -143,6 +148,24 @@ def run_loadgen(url, platform, request_type, threads, qps, run_time):
             output += [result for result in results if result]
     return output
 
+def build_and_deploy_filter(filter_dir):
+    res = kube_env.build_filter(filter_dir)
+
+    if res != util.EXIT_SUCCESS:
+        log.error("Building filter failed for %s."
+              " Make sure you give the right path", filter_dir)
+          return util.EXIT_FAILURE
+
+    res = kube_env.refresh_filter(filter_dir)
+    if res != util.EXIT_SUCCESS:
+        log.error("Deploying filter failed for %s."
+              " Make sure you give the right path", filter_dir)
+          return util.EXIT_FAILURE
+
+    # wait for kubernetes set up to finish
+    time.sleep(120)
+    return util.EXIT_SUCCESS
+
 
 def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     if kube_env.check_kubernetes_status() != util.EXIT_SUCCESS:
@@ -155,6 +178,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     log.info("Gateway URL: %s", url)
     results = []
     filters = []
+
     if kwargs.get("no_filter") == "ON":
         filter_dirs.append("no_filter")
         filters.append("no_filter")
@@ -165,54 +189,27 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         if f.is_file():
             f.unlink()
 
-    for (idx, fd) in enumerate(filter_dirs):
-        log.info("Benchmarking %s", fd)
-        if fd != "no_filter":
-            build_res = kube_env.build_filter(fd)
-
-            if build_res != util.EXIT_SUCCESS:
-                log.error(
-                    "Building filter failed for %s."
-                    " Make sure you give the right path", fd)
-                return util.EXIT_FAILURE
-
-            filter_res = kube_env.refresh_filter(fd)
-            if filter_res != util.EXIT_SUCCESS:
-                log.error(
-                    "Deploying filter failed for %s."
-                    " Make sure you give the right path", fd)
-                return util.EXIT_FAILURE
-
-            # wait for kubernetes set up to finish
-            time.sleep(120)
-            fname = Path(fd).name
+    for (idx, filter_dir) in enumerate(filter_dirs):
+        log.info("Benchmarking %s", filter_dir)
+        if filter_dir != "no_filter":
+            res = build_and_deploy_filter(filter_dir)
+            if res != util.EXIT_SUCCESS:
+              return util.EXIT_FAILURE
+            fname = Path(filter_dir).name
             filters.append(fname)
         log.info("Warming up...")
         for i in range(10):
             requests.get(url)
         if custom == "locust":
-            application = kwargs.get("application")
+            application = APPLICATIONS.get(kwargs.get("application"))
             custom_args = " ".join(kwargs.get("custom_args"))
-            if application == "BK":
-              res = run_locust(url, platform, custom_args, "bookinfo_benchmark")
-              if res != util.EXIT_SUCCESS:
-                log.error("Error benchmarking %s application", application)
-                return util.EXIT_FAILURE
-            elif application == "HR":
-              pass
-            elif application == "OB":
-              res = run_locust(url, platform, custom_args, "online_boutique_benchmark")
-              if res != util.EXIT_SUCCESS:
-                log.error("Error benchmarking %s application", application)
-                return util.EXIT_FAILURE
-            elif application == "TT":
-              res = run_locust(url, platform, custom_args, "train_ticket_benchmark")
-              if res != util.EXIT_SUCCESS:
-                log.error("Error benchmarking %s application", application)
-                return util.EXIT_FAILURE
-
-            else:
-              log.error("Provided application does not exist")
+            if not application:
+              log.error("Provided application does not exists")
+              return util.EXIT_FAILURE
+            res = run_locust(url, platform, custom_args, application)
+            if res != util.EXIT_SUCCESS:
+              log.error("Error benchmarking %s application", application)
+              return util.EXIT_FAILURE
         elif custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(url, platform, request, threads, qps,
