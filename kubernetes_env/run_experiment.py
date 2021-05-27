@@ -29,7 +29,7 @@ PROJECT_ID = "dynamic-tracing"
 
 QPS = 10
 THREADS = 2
-RUNTIME = 500
+RUNTIME = 180
 
 def application_experiment(platform, multizonal, application, empty_filter, arg_no_filter, filter_dirs):
     if application == "BK":
@@ -63,26 +63,29 @@ def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter
     if empty_filter:
         filters.append(EMPTY_FILTER_DIR)
 
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_index"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='/', request='GET', custom='')
-    #time.sleep(60)
-    #stop_kubernetes(platform)
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_index"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+        output=output, no_filter=no_filter, subpath='/', request='GET',
+        custom='', plot_name = "Index - Online Boutique")
+    stop_kubernetes(platform)
+    time.sleep(60)
 
 
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_set_currency"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter= no_filter, subpath='setCurrency', request='CURRENCY', custom='')
-    #time.sleep(60)
-    #stop_kubernetes(platform)
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_set_currency"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+        output=output, no_filter= no_filter, subpath='setCurrency',
+        request='CURRENCY', custom='', plot_name = "Set Currency - Online Boutique" )
+    stop_kubernetes(platform)
+    time.sleep(60)
 
 
     setup_application_deployment(platform, multizonal, "OB")
     output = platform + "online_boutique_browse_product"
     start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter=no_filter, subpath='product/6E92ZMYYFZ', request='GET', custom='')
+        output=output, no_filter=no_filter, subpath='product/6E92ZMYYFZ',
+        request='GET', custom='', plot_name="Browse Product - Online Boutique")
     stop_kubernetes(platform)
 
     time.sleep(60)
@@ -90,7 +93,8 @@ def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter
     setup_application_deployment(platform, multizonal, "OB")
     output = platform + "online_boutique_view_cart"
     start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter=no_filter, subpath='cart', request='GET', custom='')
+        output=output, no_filter=no_filter, subpath='cart', request='GET',
+        custom='', plot_name="View Cart - Online Boutique")
     stop_kubernetes(platform)
 
     time.sleep(60)
@@ -98,8 +102,8 @@ def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter
     setup_application_deployment(platform, multizonal, "OB")
     output = platform + "online_boutique_add_to_cart"
     start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter=no_filter, subpath='cart', request='ADD_TO_CART', custom='')
-    #time.sleep(60)
+        output=output, no_filter=no_filter, subpath='cart',
+        request='ADD_TO_CART', custom='', plot_name="Add to Cart - Online Boutique")
     stop_kubernetes(platform)
 
     #time.sleep(60)

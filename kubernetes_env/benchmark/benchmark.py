@@ -77,11 +77,12 @@ def plot(dfs, filters, title, plot_name, fortio=True):
         plt.legend(labels=filters)
         plt.title(f"Fortio: {title}")
     else:
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
+        fig, ax1 = plt.subplots(1, figsize=(18, 6))
         dplot = sns.ecdfplot(dfs, ax=ax1)
         dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
-        hplot = sns.histplot(dfs, ax=ax2)
-        hplot.set(xlabel="Latency (ms)", ylabel="Count")
+        dplot.set_title(plot_name)
+        #hplot = sns.histplot(dfs, ax=ax2)
+        #hplot.set(xlabel="Latency (ms)", ylabel="Count")
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
@@ -205,6 +206,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     custom = kwargs.get("custom")
     request = kwargs.get("request")
     output = kwargs.get("output")
+    plot_name = kwargs.get("plot_name")
     # make sure no_filter happens at the beginning
     if kwargs.get("no_filter") == "ON":
         filter_dirs.insert(0, "no_filter")
@@ -259,12 +261,12 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
     if custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
-        np.save("fortio", fortio_df)
+        np.save("fortio{plot_name}", fortio_df)
         return plot(fortio_df, filters, title, output, fortio=True)
     else:
         loadgen_df = transform_loadgen_data(filters, results)
-        np.save("output", loadgen_df)
-        return plot(loadgen_df, filters, "", output, fortio=False)
+        np.save(f"output{plot_name}", loadgen_df)
+        return plot(loadgen_df, filters, plot_name, output, fortio=False)
 
 
 def main(args):
@@ -278,7 +280,6 @@ def main(args):
                            subpath=args.subpath,
                            request=args.request,
                            custom=args.custom.lower())
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -356,6 +357,11 @@ if __name__ == '__main__':
                         dest="request",
                         default="GET",
                         help="Request type")
+    parser.add_argument("-pl",
+                        "--plot",
+                        dest="plot",
+                        default="output.npy",
+                        help="Just plot data")
 
     # Parse options and process argv
     arguments = parser.parse_args()
