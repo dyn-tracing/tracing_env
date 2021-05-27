@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import argparse import logging
+import argparse 
+import logging
 import subprocess
 import os
 import sys
@@ -85,14 +86,10 @@ def plot(dfs, filters, title, plot_name, fortio=True):
     log.info("Finished plotting. Check out the graphs directory!")
     return util.EXIT_SUCCESS
 
-def run_locust(url, platform, users, spawn_rate, run_time, filename):
+def run_locust(url, platform, custom_args, filename):
     utils.check_dir(DATA_DIR)
-    util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.csv"))
-    pathandname = str(FILE_DIR.joinpath(f"{filename}.py"))
-    cmd = f"locust -f {pathandname} -H {url}"
-    cmd += f" -u {users} -r {spawn_rate} -t {run_time}s --headless"
-    cmd += " --csv {filename}"
+    cmd = f"locust -H {url} {custom_args} --csv {filename}"
     with open(output_file, "w") as f:
         res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return res
@@ -195,22 +192,21 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
             requests.get(url)
         if custom == "locust":
             application = kwargs.get("application")
-            users = kwargs.get("users")
-            spawn_rate = kwargs.get("spawn_rate")
+            custom_args = " ".join(kwargs.get("custom_args"))
             if application == "BK":
-              res = run_locust(url, platform, users, spawn_rate, run_time, "bookinfo_benchmark")
+              res = run_locust(url, platform, custom_args, "bookinfo_benchmark")
               if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
             elif application == "HR":
               pass
             elif application == "OB":
-              res = run_locust(url, platform, users, spawn_rate, run_time, "online_boutique_benchmark")
+              res = run_locust(url, platform, custom_args, "online_boutique_benchmark")
               if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
-            elif application = "TT":
-              res = run_locust(url, platform, users, spawn_rate, run_time, "train_ticket_benchmark")
+            elif application == "TT":
+              res = run_locust(url, platform, custom_args, "train_ticket_benchmark")
               if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
@@ -247,12 +243,11 @@ def main(args):
                            args.qps,
                            args.time,
                            application=args.application,
-                           users=args.users,
-                           spawn_rate=args.spawn_rate,
                            no_filter=args.nf,
                            output=args.output,
                            subpath=args.subpath,
                            request=args.request,
+                           custom_args=args.args,
                            custom=args.custom.lower())
 
 
@@ -296,13 +291,13 @@ if __name__ == '__main__':
                         type=int,
                         default=2,
                         help="Number of threads")
-   parser.add_argument("-u",
+    parser.add_argument("-u",
                         "--users",
                         dest="users",
                         type=int,
                         default=10,
                         help="Number of users to spawn")
-   parser.add_argument("-sr",
+    parser.add_argument("-sr",
                         "--spawn-rate",
                         dest="spawn_rate",
                         type=int,
@@ -323,10 +318,10 @@ if __name__ == '__main__':
     parser.add_argument("-a",
                         "--application",
                         dest="applicaiton",
-                        default="BK",                                           
-                        choices=["BK", "HR", "OB", "TT"],                       
-                     help="Which application to deploy."                     
-                         "BK: bookinfo, HR: hotel reservation, OB: online boutique, TT: train ticket")
+                        default="BK",
+                        choices=["BK", "HR", "OB", "TT"],
+                        help="Which application to deploy."
+                        "BK: bookinfo, HR: hotel reservation, OB: online boutique, TT: train ticket")
     parser.add_argument("-cu",
                         "--use-custom",
                         dest="custom",
@@ -352,6 +347,11 @@ if __name__ == '__main__':
                         dest="request",
                         default="GET",
                         help="Request type")
+    parser.add_argument("-ar",
+                        "--args",
+                        nargs=argparse.REMAINDER,
+                        help="Rest of the args")
+
 
     # Parse options and process argv
     arguments = parser.parse_args()
