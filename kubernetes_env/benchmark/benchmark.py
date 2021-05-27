@@ -91,21 +91,21 @@ def plot(dfs, filters, title, plot_name, fortio=True):
     log.info("Finished plotting. Check out the graphs directory!")
     return util.EXIT_SUCCESS
 
-def run_locust(url, platform, custom_args, filename):
-    utils.check_dir(DATA_DIR)
+def run_locust(url, platform, command_args, filename):
+    util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.csv"))
-    cmd = f"locust -H {url} {custom_args} --csv {filename}"
+    cmd = f"locust -f {filename}.py -H {url} {command_args} --csv {filename}"
     with open(output_file, "w") as f:
         res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return res
 
-def run_fortio(url, platform, threads, qps, run_time, custom_args, filename):
+def run_fortio(url, platform, threads, qps, run_time, command_args, filename):
     util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.json"))
     fortio_dir = str(FORTIO_DIR)
     cmd = f"{fortio_dir} load "
     cmd += f"-c {threads} -qps {qps} -timeout 50s -t {run_time}s -json {output_file} "
-    cmd += " {custom_args} "
+    cmd += " {command_args} "
     cmd += f"{url}"
     with open(output_file, "w") as f:
         res = util.exec_process(cmd, stdout=subprocess.PIPE,
@@ -153,13 +153,13 @@ def build_and_deploy_filter(filter_dir):
     if res != util.EXIT_SUCCESS:
         log.error("Building filter failed for %s."
               " Make sure you give the right path", filter_dir)
-          return util.EXIT_FAILURE
+        return util.EXIT_FAILURE
 
     res = kube_env.refresh_filter(filter_dir)
     if res != util.EXIT_SUCCESS:
         log.error("Deploying filter failed for %s."
               " Make sure you give the right path", filter_dir)
-          return util.EXIT_FAILURE
+        return util.EXIT_FAILURE
 
     # wait for kubernetes set up to finish
     time.sleep(120)
@@ -174,8 +174,8 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     custom = kwargs.get("custom")
     request = kwargs.get("request")
     output = kwargs.get("output")
-    custom_args = " ".join(kwargs.get("custom_args"))
-    application = APPLICATIONS.get(kwargs.get("application"))i
+    command_args = " ".join(kwargs.get("command_args"))
+    application = APPLICATIONS.get(kwargs.get("application"))
 
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     path = kwargs.get("subpath")
@@ -210,14 +210,14 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
               log.error("Provided application does not exists")
               return util.EXIT_FAILURE
             log.info("Running locust...")
-            res = run_locust(url, platform, custom_args, application)
+            res = run_locust(f"http://{gateway_url}", platform, command_args, application)
             if res != util.EXIT_SUCCESS:
               log.error("Error benchmarking %s application", application)
               return util.EXIT_FAILURE
         elif custom == "fortio":
             log.info("Running fortio...")
             fortio_res = run_fortio(url, platform, threads, qps,
-                                    run_time, custom_args, fname)
+                                    run_time, command_args, fname)
             if fortio_res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking for %s", fd)
                 return util.EXIT_FAILURE
@@ -252,7 +252,7 @@ def main(args):
                            output=args.output,
                            subpath=args.subpath,
                            request=args.request,
-                           custom_args=args.args,
+                           command_args=args.command_args,
                            custom=args.custom.lower())
 
 
@@ -322,7 +322,7 @@ if __name__ == '__main__':
                         help="Time for fortio")
     parser.add_argument("-a",
                         "--application",
-                        dest="applicaiton",
+                        dest="application",
                         default="BK",
                         choices=["BK", "HR", "OB", "TT"],
                         help="Which application to deploy."
@@ -354,8 +354,10 @@ if __name__ == '__main__':
                         help="Request type")
     parser.add_argument("-ar",
                         "--args",
+                        dest="command_args",
+                        default="",
                         nargs=argparse.REMAINDER,
-                        help="Rest of the args")
+                        help="Extra arguments for fortio or locust")
 
 
     # Parse options and process argv
