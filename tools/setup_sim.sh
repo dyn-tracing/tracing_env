@@ -26,6 +26,9 @@ pip3 install --user pytest
 # Install requests for API requests (needed here because of imports)
 pip3 install --user requests
 
-# Install pandas and seaborn for benchmarking
-pip3 install --user seaborn pandas
+# Install seaborn for benchmarking
+pip3 install --user seaborn
+
+# Install locust for benchmarking
+pip3 install --user locust
 echo "Done with simulator setup."

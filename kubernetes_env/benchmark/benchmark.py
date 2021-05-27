@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse 
+import argparse
 import logging
 import subprocess
 import os
@@ -28,14 +28,16 @@ GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
 APPLICATIONS = {
-  "BK": "bookinfo_benchmark",
-  "HR": "",
-  "OB": "online_boutique_benchmark",
-  "TT": "train_ticket_benchmark"
+    "BK": "bookinfo_benchmark",
+    "HR": "",
+    "OB": "online_boutique_benchmark",
+    "TT": "train_ticket_benchmark"
 }
+
 
 def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
+
 
 def plot(dfs, filters, title, plot_name, custom):
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
@@ -57,36 +59,48 @@ def plot(dfs, filters, title, plot_name, custom):
         hplot = sns.histplot(dfs, ax=ax2)
         hplot.set(xlabel="Latency (ms)", ylabel="Count")
     else:
-      log.info("No valid load generator supplied!")
-      return util.EXIT_FAILURE
+        log.info("No valid load generator supplied!")
+        return util.EXIT_FAILURE
 
     util.check_dir(GRAPHS_DIR)
     plt.savefig(f"{GRAPHS_DIR}/{plot_name}.png")
     log.info("Finished plotting. Check out the graphs directory!")
     return util.EXIT_SUCCESS
 
+
 def transform_locust_data(filters, application, path):
     dfs = []
     for fname in filters:
-      csv_file_dir = str(FILE_DIR.joinpath(f"{application}_{fname}.csv"))
-      df = pd.read_csv(csv_file_dir)
-      latency = []
-      percentages = [50, 66, 75, 80, 90, 95, 98, 99, 100]
-      path_df = df.loc[df["Name"] == f"/{path}"]
-      for percentile in percentages:
-        key = str(percentile)
-        latency.append(path_df[f"{key}%"][0])
-      dfs.append(pd.DataFrame({
-        "Latency (ms)": latency,
-        "Percent": percentages
-      }))
+        csv_prefix = f"{application}"
+        if fname != "no_filter":
+          csv_prefix += f"_{fname}"
+        csv_file_dir = str(FILE_DIR.joinpath(f"{csv_prefix}_stats.csv"))
+        df = pd.read_csv(csv_file_dir)
+        latency = []
+        percentages = [50, 66, 75, 80, 90, 95, 98, 99, 100]
+        path_df = df.loc[df["Name"] == f"/{path}"]
+        for percentile in percentages:
+            key = str(percentile)
+            latency.append(path_df[f"{key}%"][0])
+        dfs.append(
+            pd.DataFrame({
+                "Latency (ms)": latency,
+                "Percent": percentages
+            }))
     return dfs
+
 
 def run_locust(url, platform, command_args, application, filename):
     py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
-    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {application_filename}"
-    res = util.exec_process(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    csv_prefix = f"{application}"
+    if filename != "no_filter":
+      csv_prefix += f"_{filename}"
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix}"
+    res = util.exec_process(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
     return res
+
 
 def transform_fortio_data(filters):
     dfs = []
@@ -112,6 +126,7 @@ def transform_fortio_data(filters):
             dfs.append(df)
     return dfs, title
 
+
 def run_fortio(url, platform, threads, qps, run_time, command_args, filename):
     util.check_dir(DATA_DIR)
     output_file = str(DATA_DIR.joinpath(f"{filename}.json"))
@@ -121,15 +136,18 @@ def run_fortio(url, platform, threads, qps, run_time, command_args, filename):
     cmd += " {command_args} "
     cmd += f"{url}"
     with open(output_file, "w") as f:
-        res = util.exec_process(cmd, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+        res = util.exec_process(cmd,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
         return res
+
 
 def transform_loadgen_data(filters, data):
     combined_data = {}
     for fname, loadgen in zip(filters, data):
         combined_data[fname] = loadgen
     return pd.DataFrame(combined_data, columns=filters)
+
 
 def run_loadgen(url, platform, threads, qps, run_time, request_type):
     output = []
@@ -165,18 +183,21 @@ def run_loadgen(url, platform, threads, qps, run_time, request_type):
             output += [result for result in results if result]
     return output
 
+
 def build_and_deploy_filter(filter_dir):
     res = kube_env.build_filter(filter_dir)
 
     if res != util.EXIT_SUCCESS:
-        log.error("Building filter failed for %s."
-              " Make sure you give the right path", filter_dir)
+        log.error(
+            "Building filter failed for %s."
+            " Make sure you give the right path", filter_dir)
         return util.EXIT_FAILURE
 
     res = kube_env.refresh_filter(filter_dir)
     if res != util.EXIT_SUCCESS:
-        log.error("Deploying filter failed for %s."
-              " Make sure you give the right path", filter_dir)
+        log.error(
+            "Deploying filter failed for %s."
+            " Make sure you give the right path", filter_dir)
         return util.EXIT_FAILURE
 
     # wait for kubernetes set up to finish
@@ -214,11 +235,11 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
     for (idx, filter_dir) in enumerate(filter_dirs):
         log.info("Benchmarking %s", filter_dir)
+        fname = Path(filter_dir).name
         if filter_dir != "no_filter":
             res = build_and_deploy_filter(filter_dir)
             if res != util.EXIT_SUCCESS:
-              return util.EXIT_FAILURE
-            fname = Path(filter_dir).name
+                return util.EXIT_FAILURE
             filters.append(fname)
 
         log.info("Warming up...")
@@ -227,24 +248,25 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
         if custom == "locust":
             if not application:
-              log.error("Provided application does not exists")
-              return util.EXIT_FAILURE
+                log.error("Provided application does not exists")
+                return util.EXIT_FAILURE
             log.info("Running locust...")
-            res = run_locust(f"http://{gateway_url}", platform, command_args, application, fname)
+            res = run_locust(f"http://{gateway_url}", platform, command_args,
+                             application, fname)
             if res != util.EXIT_SUCCESS:
-              log.error("Error benchmarking %s application", application)
-              return util.EXIT_FAILURE
+                log.error("Error benchmarking %s application", application)
+                return util.EXIT_FAILURE
         elif custom == "fortio":
             log.info("Running fortio...")
-            fortio_res = run_fortio(url, platform, threads, qps,
-                                    run_time, command_args, fname)
+            fortio_res = run_fortio(url, platform, threads, qps, run_time,
+                                    command_args, fname)
             if fortio_res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking for %s", fd)
                 return util.EXIT_FAILURE
         else:
             log.info("Generating load...")
-            burst_res = run_loadgen(url, platform, threads, qps,
-                                 run_time, request)
+            burst_res = run_loadgen(url, platform, threads, qps, run_time,
+                                    request)
             results.append(burst_res)
 
     # Plot functions
@@ -340,13 +362,15 @@ if __name__ == '__main__':
                         type=int,
                         default=120,
                         help="Time for fortio")
-    parser.add_argument("-a",
-                        "--application",
-                        dest="application",
-                        default="BK",
-                        choices=["BK", "HR", "OB", "TT"],
-                        help="Which application to deploy."
-                        "BK: bookinfo, HR: hotel reservation, OB: online boutique, TT: train ticket")
+    parser.add_argument(
+        "-a",
+        "--application",
+        dest="application",
+        default="BK",
+        choices=["BK", "HR", "OB", "TT"],
+        help="Which application to deploy."
+        "BK: bookinfo, HR: hotel reservation, OB: online boutique, TT: train ticket"
+    )
     parser.add_argument("-cu",
                         "--use-custom",
                         dest="custom",
@@ -378,7 +402,6 @@ if __name__ == '__main__':
                         default="",
                         nargs=argparse.REMAINDER,
                         help="Extra arguments for fortio or locust")
-
 
     # Parse options and process argv
     arguments = parser.parse_args()
