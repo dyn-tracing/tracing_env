@@ -26,6 +26,7 @@ FILE_DIR = DIRS[0]
 FILTER_DIR = FILE_DIR.joinpath("rs-empty-filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
+NPY_DIR = FILE_DIR.joinpath("npy")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
 
 # Hotel Reservation(HR) is not supported as an application
@@ -275,19 +276,21 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
     # Plot functions
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
-    np_output = f"{custom} {application} {timestamp}"
+    npy_file = f"{custom} {application} {timestamp}"
+    npy_file_dir = str(NPY_DIR.joinpath(npy_file))
     graph_output = f"{custom} {application} {timestamp}"
+    util.check_dir(NPY_DIR)
     if custom == "locust":
         locust_df = transform_locust_data(filters, application, path)
-        np.save(np_output, locust_df)
+        np.save(npy_file_dir, locust_df)
         return plot(locust_df, filters, graph_output, custom)
     elif custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
-        np.save(np_output, fortio_df)
+        np.save(npy_file_dir, fortio_df)
         return plot(fortio_df, filters, graph_output, custom)
     elif custom == "loadgen":
         loadgen_df = transform_loadgen_data(filters, results)
-        np.save(np_output, loadgen_df)
+        np.save(npy_file_dir, loadgen_df)
         return plot(loadgen_df, filters, graph_output, custom)
 
 
