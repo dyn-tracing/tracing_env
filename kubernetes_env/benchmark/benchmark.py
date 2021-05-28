@@ -27,6 +27,8 @@ FILTER_DIR = FILE_DIR.joinpath("rs-empty-filter")
 GRAPHS_DIR = FILE_DIR.joinpath("graphs")
 DATA_DIR = FILE_DIR.joinpath("data")
 FORTIO_DIR = DIRS[2].joinpath("bin/fortio")
+
+# Hotel Reservation(HR) is not supported as an application
 APPLICATIONS = {
     "BK": "bookinfo_benchmark",
     "HR": "",
@@ -39,23 +41,22 @@ def sec_to_ms(res_time):
     return round(float(res_time) * 1000, 3)
 
 
-def plot(dfs, filters, title, plot_name, custom):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
-    plot_name += f" {timestamp}"
+def plot(dfs, filters, plot_name, custom):
     if custom == "locust":
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
         plt.legend(labels=filters)
-        plt.title("Locust")
+        plt.title(plot_name)
     elif custom == "fortio":
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
         plt.legend(labels=filters)
-        plt.title(f"Fortio: {title}")
+        plt.title(plot_name)
     elif custom == "loadgen":
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
         dplot = sns.ecdfplot(dfs, ax=ax1)
         dplot.set(xlabel="Latency (ms)", ylabel="Percentiles")
+        dplot.set_title(plot_name)
         hplot = sns.histplot(dfs, ax=ax2)
         hplot.set(xlabel="Latency (ms)", ylabel="Count")
     else:
@@ -213,7 +214,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
 
     custom = kwargs.get("custom")
     request = kwargs.get("request")
-    output = kwargs.get("output")
+    output = kwargs.get("output_file")
     command_args = " ".join(kwargs.get("command_args"))
     application = APPLICATIONS.get(kwargs.get("application"))
 
@@ -226,8 +227,8 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     filters = []
 
     if kwargs.get("no_filter") == "ON":
-        filter_dirs.append("no_filter")
-        filters.append("no_filter")
+        filter_dirs.insert(0, "no_filter")
+        filters.insert(0, "no_filter")
 
     for f in DATA_DIR.glob("*"):
         if f.is_file():
@@ -263,24 +264,31 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
             if fortio_res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking for %s", fd)
                 return util.EXIT_FAILURE
-        else:
+        elif custom == "loadgen":
             log.info("Generating load...")
             burst_res = run_loadgen(url, platform, threads, qps, run_time,
                                     request)
             results.append(burst_res)
+        else:
+            log.error("Invalid load generator")
+            return util.EXIT_FAILURE
 
     # Plot functions
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
+    np_output = f"{custom} {application} {timestamp}"
+    graph_output = f"{custom} {application} {timestamp}"
     if custom == "locust":
         locust_df = transform_locust_data(filters, application, path)
-        return plot(locust_df, filters, "", output, "locust")
+        np.save(np_output, locust_df)
+        return plot(locust_df, filters, graph_output, custom)
     elif custom == "fortio":
         fortio_df, title = transform_fortio_data(filters)
-        np.save("fortio", fortio_df)
-        return plot(fortio_df, filters, title, output, "fortio")
-    else:
+        np.save(np_output, fortio_df)
+        return plot(fortio_df, filters, graph_output, custom)
+    elif custom == "loadgen":
         loadgen_df = transform_loadgen_data(filters, results)
-        np.save("output", loadgen_df)
-        return plot(loadgen_df, filters, "", output, "loadgen")
+        np.save(np_output, loadgen_df)
+        return plot(loadgen_df, filters, graph_output, custom)
 
 
 def main(args):
@@ -291,11 +299,12 @@ def main(args):
                            args.time,
                            application=args.application,
                            no_filter=args.nf,
-                           output=args.output,
+                           output_file=args.output_file,
                            subpath=args.subpath,
                            request=args.request,
                            command_args=args.command_args,
-                           custom=args.custom.lower())
+                           custom=args.custom.lower(),
+                           plot_name=args.plot_name)
 
 
 if __name__ == '__main__':
@@ -374,7 +383,7 @@ if __name__ == '__main__':
     parser.add_argument("-cu",
                         "--use-custom",
                         dest="custom",
-                        default="",
+                        default="loadgen",
                         help="Running custom load generator.")
     parser.add_argument("-nf",
                         "--no-filter",
@@ -382,10 +391,10 @@ if __name__ == '__main__':
                         default="ON",
                         help="Benchmark with no filter")
     parser.add_argument("-o",
-                        "--output",
-                        dest="output",
-                        default="output-file",
-                        help="Output for graph file")
+                        "--output-file",
+                        dest="output_file",
+                        default="output",
+                        help="Output data for the graph")
     parser.add_argument("-sp",
                         "--subpath",
                         dest="subpath",
@@ -402,7 +411,6 @@ if __name__ == '__main__':
                         default="",
                         nargs=argparse.REMAINDER,
                         help="Extra arguments for fortio or locust")
-
     # Parse options and process argv
     arguments = parser.parse_args()
     # configure logging
