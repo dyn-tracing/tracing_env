@@ -29,7 +29,7 @@ PROJECT_ID = "dynamic-tracing"
 
 QPS = 10
 THREADS = 2
-RUNTIME = 500
+RUNTIME = 50
 
 def application_experiment(platform, multizonal, application, empty_filter, arg_no_filter, filter_dirs):
     if application == "BK":
@@ -51,8 +51,10 @@ def bookinfo_experiment(platform, multizonal, empty_filter, arg_no_filter, filte
         filters.append(EMPTY_FILTER_DIR)
     setup_application_deployment(platform, multizonal, "BK")
     output = platform + "bookinfo"
-    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter= no_filter, subpath='productpage', request='GET', custom='')
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application = "BK",
+        output_file=output, no_filter= no_filter, subpath='productpage',
+        request='GET', custom='loadgen',
+        command_args=[], plot_name="BookInfo")
     stop_kubernetes(platform)
 
 def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter, filter_dirs):
@@ -63,50 +65,52 @@ def online_boutique_experiment(platform, multizonal, empty_filter, arg_no_filter
     if empty_filter:
         filters.append(EMPTY_FILTER_DIR)
 
-    setup_application_deployment(platform, multizonal, "OB")
-    output = platform + "online_boutique_index"
-    start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-        output=output, no_filter=no_filter, subpath='', request='GET',
-        custom='', plot_name = "Index - Online Boutique")
-    stop_kubernetes(platform)
-    #time.sleep(60)
+    #setup_application_deployment(platform, multizonal, "OB")
+    #output = platform + "online_boutique_index"
+    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application="OB",
+    #    output_file=output, no_filter=no_filter, subpath='', request='GET',
+    #    custom='loadgen', plot_name = "Index - Online Boutique", command_args=[])
+    #stop_kubernetes(platform)
+    #time.sleep(20)
 
 
     #setup_application_deployment(platform, multizonal, "OB")
     #output = platform + "online_boutique_set_currency"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application="OB",
     #    output=output, no_filter= no_filter, subpath='setCurrency',
-    #    request='CURRENCY', custom='', plot_name = "Set Currency - Online Boutique" )
+    #    request='CURRENCY', custom='loadgen', 
+    #    plot_name = "Set Currency - Online Boutique", command_args=[])
     #stop_kubernetes(platform)
-    #time.sleep(60)
+    #time.sleep(20)
 
 
     #setup_application_deployment(platform, multizonal, "OB")
     #output = platform + "online_boutique_browse_product"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
+    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application="OB",
     #    output=output, no_filter=no_filter, subpath='product/6E92ZMYYFZ',
-    #    request='GET', custom='', plot_name="Browse Product - Online Boutique")
+    #    request='GET', custom='loadgen',
+    #    plot_name="Browse Product - Online Boutique", command_args=[])
     #stop_kubernetes(platform)
 
-    #time.sleep(60)
+    #time.sleep(20)
 
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_view_cart"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='cart', request='GET',
-    #    custom='', plot_name="View Cart - Online Boutique")
-    #stop_kubernetes(platform)
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_view_cart"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application="OB",
+        output=output, no_filter=no_filter, subpath='cart', request='GET',
+        custom='loadgen', plot_name="View Cart - Online Boutique", command_args=[])
+    stop_kubernetes(platform)
 
-    #time.sleep(60)
+    time.sleep(20)
 
-    #setup_application_deployment(platform, multizonal, "OB")
-    #output = platform + "online_boutique_add_to_cart"
-    #start_benchmark(filters, platform, THREADS, QPS, RUNTIME,
-    #    output=output, no_filter=no_filter, subpath='cart',
-    #    request='ADD_TO_CART', custom='', plot_name="Add to Cart - Online Boutique")
-    #stop_kubernetes(platform)
+    setup_application_deployment(platform, multizonal, "OB")
+    output = platform + "online_boutique_add_to_cart"
+    start_benchmark(filters, platform, THREADS, QPS, RUNTIME, application="OB",
+        output=output, no_filter=no_filter, subpath='cart',
+        request='ADD_TO_CART', custom='loadgen',
+        plot_name="Add to Cart - Online Boutique", command_args=[])
+    stop_kubernetes(platform)
 
-    #time.sleep(60)
 
 def train_ticket_experiment(multizonal, empty_filter, arg_no_filter, filter_dirs):
     filters = filter_dirs
@@ -119,8 +123,10 @@ def train_ticket_experiment(multizonal, empty_filter, arg_no_filter, filter_dirs
 
     #setup_application_deployment('GCP', multizonal, 'TT')
     output = "GCPtrain_ticket_home"
-    start_benchmark(filters, 'GCP', THREADS, QPS, RUNTIME,
-        output=output, no_filter= no_filter, subpath='index.html', request='GET', custom='')
+    start_benchmark(filters, 'GCP', THREADS, QPS, RUNTIME, application="TT",
+        output=output, no_filter= no_filter, subpath='index.html',
+        request='GET', custom='loadgen', command_args=[])
+
     time.sleep(60)
     stop_kubernetes('GCP')
 

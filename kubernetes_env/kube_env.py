@@ -28,8 +28,7 @@ CONFIG_MATRIX = {
     'BK': {
         'minikube_startup_command': "minikube start --cpus=2 --memory 4096 --disk-size 32g",
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=5 ",
+                                  --num-nodes=5 ",
         'deploy_cmd': f"{APPLY_CMD} {YAML_DIR}/bookinfo-services.yaml && \
                         {APPLY_CMD} {YAML_DIR}/bookinfo-apps.yaml && \
                         {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/bookinfo-gateway.yaml && \
