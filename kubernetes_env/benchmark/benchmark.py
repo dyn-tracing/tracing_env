@@ -70,20 +70,20 @@ def plot(dfs, filters, plot_name, custom):
     return util.EXIT_SUCCESS
 
 
-def transform_locust_data(filters, application, path):
+def transform_locust_data(filters, application):
     dfs = []
     for fname in filters:
-        csv_prefix = f"{application}"
+        csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}")) 
         if fname != "no_filter":
           csv_prefix += f"_{fname}"
         csv_file_dir = str(FILE_DIR.joinpath(f"{csv_prefix}_stats.csv"))
         df = pd.read_csv(csv_file_dir)
         latency = []
         percentages = [50, 66, 75, 80, 90, 95, 98, 99, 100]
-        path_df = df.loc[df["Name"] == f"/{path}"]
+        path_df = df.loc[df["Name"] == "Aggregated"]
         for percentile in percentages:
             key = str(percentile)
-            latency.append(path_df[f"{key}%"][0])
+            latency.append(float(path_df[f"{key}%"]))
         dfs.append(
             pd.DataFrame({
                 "Latency (ms)": latency,
@@ -91,13 +91,12 @@ def transform_locust_data(filters, application, path):
             }))
     return dfs
 
-
-def run_locust(url, platform, command_args, application, filename):
+def run_locust(url, platform, command_args, application, filename, run_time, num_users, spawn_rate):
     py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
-    csv_prefix = f"{application}"
+    csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}"))
     if filename != "no_filter":
       csv_prefix += f"_{filename}"
-    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix}"
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix} --headless -t {run_time} -u {num_users} -r {spawn_rate}"
     res = util.exec_process(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -310,7 +309,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
             log.info("Running locust...")
             res = run_locust(f"http://{gateway_url}", platform, command_args,
-                             application, fname)
+                             application, fname, run_time, kwargs.get("num_users"), kwargs.get("spawn_rate"))
             if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
@@ -337,7 +336,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     graph_output = f"{custom} {application} {timestamp}"
     util.check_dir(NPY_DIR)
     if custom == "locust":
-        locust_df = transform_locust_data(filters, application, path)
+        locust_df = transform_locust_data(filters, application)
         np.save(npy_file_dir, locust_df)
         return plot(locust_df, filters, graph_output, custom)
     elif custom == "fortio":
@@ -363,7 +362,9 @@ def main(args):
                            request=args.request,
                            command_args=args.command_args,
                            custom=args.custom.lower(),
-                           plot_name=args.plot_name)
+                           plot_name=args.plot_name,
+                           num_users=args.users,
+                           spawn_rate=args.spawn_rate)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -409,13 +410,13 @@ if __name__ == '__main__':
                         "--users",
                         dest="users",
                         type=int,
-                        default=10,
+                        default=1000,
                         help="Number of users to spawn")
     parser.add_argument("-sr",
                         "--spawn-rate",
                         dest="spawn_rate",
                         type=int,
-                        default=5,
+                        default=100,
                         help="Rate to spawn users")
     parser.add_argument("-qps",
                         "--query-per-second",
@@ -428,7 +429,7 @@ if __name__ == '__main__':
                         dest="time",
                         type=int,
                         default=120,
-                        help="Time for fortio")
+                        help="Time for load generator to run")
     parser.add_argument(
         "-a",
         "--application",
@@ -463,6 +464,11 @@ if __name__ == '__main__':
                         dest="request",
                         default="GET",
                         help="Request type")
+    parser.add_argument("-pl",
+                        "--plot_name",
+                        dest="plot_name",
+                        default="plot_name",
+                        help="Title of the plot to be created")
     parser.add_argument("-ar",
                         "--args",
                         dest="command_args",
