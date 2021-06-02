@@ -121,34 +121,11 @@ pub struct HttpHeaders {
 }
 
 impl Context for HttpHeaders {
-    /// Process the callback from any http calls the filter makes for debugging.
-    /// This is usually from storage.
-    /// TODO: This is not working reliably yet. Needs some investigating.
-    fn on_http_call_response(
-        &mut self,
-        _token_id: u32,
-        _num_headers: usize,
-        body_size: usize,
-        _: usize,
-    ) {
-        log::warn!("Received response from storage");
-        if let Some(body) = self.get_http_call_response_body(0, body_size) {
-            log::warn!("Storage body: {:?}", body);
-        }
-        for (name, value) in &self.get_http_response_headers() {
-            log::warn!("Storage Header - {:?}: {:?}", name, value);
-        }
-    }
 }
 
 impl HttpContext for HttpHeaders {
     fn on_http_request_headers(&mut self, num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
-        log::warn!(
-            "{}: Request Header Direction {}",
-            self.workload_name,
-            direction
-        );
         let result: Result<(), String>;
         if direction == TrafficDirection::Inbound {
             result = self.on_http_request_headers_inbound(num_headers);
@@ -167,11 +144,6 @@ impl HttpContext for HttpHeaders {
 
     fn on_http_response_headers(&mut self, num_headers: usize) -> Action {
         let direction = self.get_traffic_direction();
-        log::warn!(
-            "{}: Response Header Direction {}",
-            self.workload_name,
-            direction
-        );
         let result: Result<(), String>;
         if direction == TrafficDirection::Inbound {
             result = self.on_http_response_headers_inbound(num_headers);
@@ -211,7 +183,6 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request inbound: x-request-id not found in header!")?;
-        log::warn!("Request inbound: Using trace id {}!", trace_id);
 
         store_data(trace_id.clone(), &trace_id, self);
         
@@ -224,7 +195,6 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request outbound: x-request-id not found in header!")?;
-        log::warn!("Request outbound: Using trace id {}!", trace_id);
         store_data(trace_id.clone(), &trace_id, self);
 
         Ok(())
@@ -234,7 +204,6 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response inbound: x-request-id not found in header!")?;
-        log::warn!("Response inbound: Using trace id {}!", trace_id);
         store_data(trace_id.clone(), &trace_id, self);
 
         Ok(())
@@ -244,7 +213,6 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response outbound: x-request-id not found in header!")?;
-        log::warn!("Response outbound: Using trace id {}!", trace_id);
         store_data(trace_id.clone(), &trace_id, self);
 
         Ok(())
