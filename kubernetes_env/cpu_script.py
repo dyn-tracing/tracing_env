@@ -32,17 +32,30 @@ df["Time"] = df["Time"].str[3:]
 df["Time"] = df["Time"].str[:21]
 df["Time"] = pd.to_datetime(df["Time"], infer_datetime_format=True)
 
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
+
 cols = []
 for col in df.columns:
     if col != "Time":
         cols.append(col)
         df[col] = df[col].replace("undefined", "nan")
         df[col] = df[col].astype(float, errors='ignore')*1000 # change to milliseconds
-        sns.lineplot(data=df, x="Time", y=col)
-plt.subplots_adjust(right=0.7)
-plt.legend(labels=cols, bbox_to_anchor=(1.04, 0.5), loc='center left', ncol=1, mode="expand", prop={'size': 2})
+        dplt = sns.lineplot(data=df, x="Time", y=col, ax=ax1)
+        #dplt.subplots_adjust(right=0.7)
+        dplt.legend(labels=cols, bbox_to_anchor=(1.04, 0.5), loc='center left', ncol=1, mode="expand", prop={'size': 2})
+        plt.ylabel("Milliseconds of CPU time used per second")
+        plt.title("CPU Usage By Container")
+
+df["cpu_all"] = df[cols].sum(axis=1)
+df["cpu_all"] = df["cpu_all"].replace("undefined", "nan")
+df["cpu_all"] = df["cpu_all"].astype(float, errors='ignore')*1000 # change to milliseconds
+hplt = sns.lineplot(data=df, x="Time", y="cpu_all", ax=ax2)
 plt.ylabel("Milliseconds of CPU time used per second")
-plt.title("CPU Usage By Container")
+plt.title("CPU Usage Of All Containers")
+
+
+
 plt.show()
 
 
