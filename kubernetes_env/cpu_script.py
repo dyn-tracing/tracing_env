@@ -42,20 +42,18 @@ for col in df.columns:
         df[col] = df[col].replace("undefined", "nan")
         df[col] = df[col].astype(float, errors='ignore')*1000 # change to milliseconds
         dplt = sns.lineplot(data=df, x="Time", y=col, ax=ax1)
-        #dplt.subplots_adjust(right=0.7)
-        dplt.legend(labels=cols, bbox_to_anchor=(1.04, 0.5), loc='center left', ncol=1, mode="expand", prop={'size': 2})
-        plt.ylabel("Milliseconds of CPU time used per second")
-        plt.title("CPU Usage By Container")
+        dplt.legend(labels=cols, bbox_to_anchor=(0.65, -0.2), loc='upper left', ncol=2, mode="expand", prop={'size': 6})
+        dplt.set(ylabel = "Milliseconds of CPU time used per second")
+        dplt.set_title("CPU Usage By Container")
 
 df["cpu_all"] = df[cols].sum(axis=1)
 df["cpu_all"] = df["cpu_all"].replace("undefined", "nan")
 df["cpu_all"] = df["cpu_all"].astype(float, errors='ignore')*1000 # change to milliseconds
 hplt = sns.lineplot(data=df, x="Time", y="cpu_all", ax=ax2)
-plt.ylabel("Milliseconds of CPU time used per second")
-plt.title("CPU Usage Of All Containers")
+hplt.set(ylabel="Milliseconds of CPU time used per second")
+hplt.set_title("CPU Usage Of All Containers")
 
-
-
+plt.subplots_adjust(bottom=0.6, right=1)
 plt.show()
 
 
