@@ -420,7 +420,7 @@ def deploy_filter(filter_dir):
 
 def refresh_filter(filter_dir):
 
-    start_refresh = time.time()
+    start_time = time.time()
     # delete and recreate the config map
     update_conf_map(filter_dir)
 
@@ -445,9 +445,9 @@ def refresh_filter(filter_dir):
         return result
     end_time = time.time()
     log.info("To update filter, took %d", end_time-start_time)
-    with open("update_times.csv", w+) as csv_file:
-        w = csv.writer(csv_filter)
-        w.write_row(end_time-start_time)
+    with open("update_times.csv", 'a+') as csv_file:
+        w = csv.writer(csv_file)
+        w.writerow([end_time-start_time])
     return application_wait()
 
 
