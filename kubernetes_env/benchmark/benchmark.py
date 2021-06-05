@@ -47,6 +47,7 @@ def plot(dfs, filters, plot_name, custom):
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
         plt.legend(labels=filters)
+        plt.xlim(0,1000)
         plt.title(plot_name)
     elif custom == "fortio":
         for df in dfs:
@@ -410,13 +411,13 @@ if __name__ == '__main__':
                         "--users",
                         dest="users",
                         type=int,
-                        default=1000,
+                        default=50,
                         help="Number of users to spawn")
     parser.add_argument("-sr",
                         "--spawn-rate",
                         dest="spawn_rate",
                         type=int,
-                        default=100,
+                        default=5,
                         help="Rate to spawn users")
     parser.add_argument("-qps",
                         "--query-per-second",
@@ -428,7 +429,7 @@ if __name__ == '__main__':
                         "--time",
                         dest="time",
                         type=int,
-                        default=120,
+                        default=240,
                         help="Time for load generator to run")
     parser.add_argument(
         "-a",

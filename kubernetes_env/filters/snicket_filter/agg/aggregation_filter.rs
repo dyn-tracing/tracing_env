@@ -1,6 +1,4 @@
-use indexmap::IndexMap;
 use log::trace;
-use petgraph::graph::Graph;
 use proxy_wasm::traits::Context;
 use proxy_wasm::traits::HttpContext;
 use proxy_wasm::traits::RootContext;
@@ -9,7 +7,11 @@ use proxy_wasm::types::ContextType;
 use proxy_wasm::types::LogLevel;
 use std::convert::TryFrom;
 use std::fmt;
+use serde::{Serialize, Deserialize};
+
+
 // ---------------------- General Helper Functions ----------------------------
+ 
 
 #[repr(i64)]
 #[derive(Debug, PartialEq)]
@@ -47,7 +49,6 @@ pub enum HttpType {
     Response = 2,
 }
 
-
 // ---------------------------- Filter ------------------------------------
 
 #[no_mangle]
@@ -55,13 +56,11 @@ pub fn _start() {
     proxy_wasm::set_log_level(LogLevel::Info);
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> {
         Box::new(HttpHeadersRoot {
-            target_graph: Graph::new(),
         })
     });
 }
 
 struct HttpHeadersRoot {
-    target_graph: Graph<(String, IndexMap<String, String>), ()>,
 }
 
 impl Context for HttpHeadersRoot {}
@@ -72,6 +71,7 @@ impl RootContext for HttpHeadersRoot {
     }
 
     fn on_configure(&mut self, _: usize) -> bool {
+        // TODO: put empty structs in storage for UDFs
         true
     }
 
@@ -85,20 +85,18 @@ impl RootContext for HttpHeadersRoot {
         } else {
             workload_name = String::new();
         }
-        Some(Box::new(HttpHeaders {
-            context_id,
-            workload_name,
-            // TODO: This should be a reference instead of a copy
-            // Extremely annoying but I can not guarantee a life-time here
-            target_graph: self.target_graph.clone(),
-        }))
+        let mut ctx = HttpHeaders {
+            context_id, workload_name
+        };
+        
+
+        Some(Box::new(ctx))
     }
 }
 
 pub struct HttpHeaders {
     pub context_id: u32,
     pub workload_name: String,
-    pub target_graph: Graph<(String, IndexMap<String, String>), ()>,
 }
 
 impl Context for HttpHeaders {
@@ -130,19 +128,14 @@ impl HttpContext for HttpHeaders {
             self.workload_name,
             direction
         );
-        let result: Result<(), String>;
+        self.print_headers(HttpType::Request);
         if direction == TrafficDirection::Inbound {
-            result = self.on_http_request_headers_inbound(num_headers);
+            self.on_http_request_headers_inbound(num_headers);
         } else if direction == TrafficDirection::Outbound {
-            result = self.on_http_request_headers_outbound(num_headers);
+            self.on_http_request_headers_outbound(num_headers);
         } else {
-            result = Err("Unknown request direction!".to_string())
+            log::error!("Unknown request direction!");
         }
-        match result {
-            Err(e) => log::error!("{:?}", e),
-            Ok(_) => (),
-        }
-
         Action::Continue
     }
 
@@ -153,19 +146,15 @@ impl HttpContext for HttpHeaders {
             self.workload_name,
             direction
         );
-        let result: Result<(), String>;
-        if direction == TrafficDirection::Inbound {
-            result = self.on_http_response_headers_inbound(num_headers);
-        } else if direction == TrafficDirection::Outbound {
-            result = self.on_http_response_headers_outbound(num_headers);
-        } else {
-            result = Err("Unknown request direction!".to_string())
-        }
-        match result {
-            Err(e) => log::error!("{:?}", e),
-            Ok(_) => (),
-        }
+        self.print_headers(HttpType::Response);
 
+        if direction == TrafficDirection::Inbound {
+            self.on_http_response_headers_inbound(num_headers);
+        } else if direction == TrafficDirection::Outbound {
+            self.on_http_response_headers_outbound(num_headers);
+        } else {
+            log::error!("Unknown request direction!");
+        }
         Action::Continue
     }
 
@@ -187,40 +176,66 @@ impl HttpHeaders {
         return 0i64.into();
     }
 
-
-    fn on_http_request_headers_inbound(&mut self, _num_headers: usize) -> Result<(), String> {
-        let trace_id = self
-            .get_http_request_header("x-request-id")
-            .ok_or_else(|| "Request inbound: x-request-id not found in header!")?;
-        log::warn!("Request inbound: Using trace id {}!", trace_id);
-
-        Ok(())
+    fn print_headers(&self, request_type: HttpType) {
+        if request_type == HttpType::Request {
+            for (name, value) in &self.get_http_request_headers() {
+                log::warn!("#{} -> {}: {}", self.context_id, name, value);
+            }
+        } else if request_type == HttpType::Response {
+            for (name, value) in &self.get_http_response_headers() {
+                log::warn!("#{} -> {}: {}", self.context_id, name, value);
+            }
+        } else {
+            log::error!("Unsupported http type {:?}", request_type);
+        }
     }
 
-    fn on_http_request_headers_outbound(&mut self, _num_headers: usize) -> Result<(), String> {
-        let trace_id = self
-            .get_http_request_header("x-request-id")
-            .ok_or_else(|| "Request outbound: x-request-id not found in header!")?;
-        log::warn!("Request outbound: Using trace id {}!", trace_id);
+    fn on_http_request_headers_inbound(&mut self, _num_headers: usize) {
+        // Get the trace ID
+        let trace_id: String;
+        if let Some(trace_id_) = self.get_http_request_header("x-request-id") {
+            trace_id = trace_id_;
+            log::warn!("Request inbound: Using trace id {}!", trace_id);
+        } else {
+            log::error!("Request inbound: x-request-id not found in header!",);
+            return;
+        }
 
-        Ok(())
+        // Perform the aggregation function FIXME?  Only works for one aggregation function, not yet sure if we want to support multiple
+        
+
     }
 
-    fn on_http_response_headers_inbound(&mut self, _num_headers: usize) -> Result<(), String> {
-        let trace_id = self
-            .get_http_response_header("x-request-id")
-            .ok_or_else(|| "Response inbound: x-request-id not found in header!")?;
-        log::warn!("Response inbound: Using trace id {}!", trace_id);
-
-        Ok(())
+    fn on_http_request_headers_outbound(&mut self, _num_headers: usize) {
+        let trace_id: String;
+        if let Some(trace_id_) = self.get_http_request_header("x-request-id") {
+            trace_id = trace_id_;
+            log::warn!("Request outbound: Using trace id {}!", trace_id);
+        } else {
+            log::error!("Request outbound: x-request-id not found in header!",);
+            return;
+        }
     }
 
-    fn on_http_response_headers_outbound(&mut self, _num_headers: usize) -> Result<(), String> {
-        let trace_id = self
-            .get_http_response_header("x-request-id")
-            .ok_or_else(|| "Response outbound: x-request-id not found in header!")?;
-        log::warn!("Response outbound: Using trace id {}!", trace_id);
+    fn on_http_response_headers_inbound(&mut self, _num_headers: usize) {
+        let trace_id: String;
+        if let Some(trace_id_) = self.get_http_response_header("x-request-id") {
+            trace_id = trace_id_;
+            log::warn!("Response inbound: Using trace id {}!", trace_id);
+        } else {
+            log::error!("Response inbound: x-request-id not found in header!",);
+            return;
+        }
+    }
 
-        Ok(())
+    fn on_http_response_headers_outbound(&mut self, _num_headers: usize) {
+        let trace_id: String;
+        if let Some(trace_id_) = self.get_http_response_header("x-request-id") {
+            trace_id = trace_id_;
+            log::warn!("Response outbound: Using trace id {}!", trace_id);
+        } else {
+            log::error!("Response outbound: x-request-id not found in header!",);
+            return;
+        }
     }
 }
