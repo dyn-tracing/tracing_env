@@ -47,6 +47,7 @@ def plot(dfs, filters, plot_name, custom):
         for df in dfs:
             sns.lineplot(data=df, x="Latency (ms)", y="Percent")
         plt.legend(labels=filters)
+        plt.xlim(0,1000)
         plt.title(plot_name)
     elif custom == "fortio":
         for df in dfs:
@@ -70,20 +71,20 @@ def plot(dfs, filters, plot_name, custom):
     return util.EXIT_SUCCESS
 
 
-def transform_locust_data(filters, application, path):
+def transform_locust_data(filters, application):
     dfs = []
     for fname in filters:
-        csv_prefix = f"{application}"
+        csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}")) 
         if fname != "no_filter":
           csv_prefix += f"_{fname}"
         csv_file_dir = str(FILE_DIR.joinpath(f"{csv_prefix}_stats.csv"))
         df = pd.read_csv(csv_file_dir)
         latency = []
         percentages = [50, 66, 75, 80, 90, 95, 98, 99, 100]
-        path_df = df.loc[df["Name"] == f"/{path}"]
+        path_df = df.loc[df["Name"] == "Aggregated"]
         for percentile in percentages:
             key = str(percentile)
-            latency.append(path_df[f"{key}%"][0])
+            latency.append(float(path_df[f"{key}%"]))
         dfs.append(
             pd.DataFrame({
                 "Latency (ms)": latency,
@@ -91,13 +92,12 @@ def transform_locust_data(filters, application, path):
             }))
     return dfs
 
-
-def run_locust(url, platform, command_args, application, filename):
+def run_locust(url, platform, command_args, application, filename, run_time, num_users, spawn_rate):
     py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
-    csv_prefix = f"{application}"
+    csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}"))
     if filename != "no_filter":
       csv_prefix += f"_{filename}"
-    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix}"
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix} --headless -t {run_time} -u {num_users} -r {spawn_rate}"
     res = util.exec_process(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -175,7 +175,62 @@ def run_loadgen(url, platform, threads, qps, run_time, request_type):
         except requests.exceptions.Timeout:
             pass
 
-    request_func = get_request if request_type == "GET" else post_request
+    def currency_request(_):
+        try:
+            res = requests.post(url, params={'currency_code': 'USD'}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
+        except requests.exceptions.Timeout:
+            pass
+
+    def add_to_cart(_):
+        try:
+            res = requests.post(url, params={'product_id': 'LS4PSXUNUM', 'quantity': 5}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            return ms
+        except requests.exceptions.Timeout:
+            pass
+
+    def checkout(_):
+        try:
+            res = requests.post(url, params={'product_id': 'LS4PSXUNUM', 'quantity': 5}, timeout=3)
+            if res.status_code != 200:
+                return None
+            ms = res.elapsed.total_seconds() * 1000
+            res2 = requests.post(url+"/checkout", params={
+                'email': 'someone@example.com',
+                'street_address': '1600 Amphitheatre Parkway',
+                'zip_code': '94043',
+                'city': 'Mountain View',
+                'state': 'CA',
+                'country': 'United States',
+                'credit_card_number': '4432-8015-6152-0454',
+                'credit_card_expiration_month': '1',
+                'credit_card_expiration_year': '2039',
+                'credit_card_cvv': '672',
+                },
+            timeout=3)
+            if res2.status_code != 200:
+                return None
+            ms2 = res2.elapsed.total_seconds() * 1000
+            return ms + ms2
+        except requests.exceptions.Timeout:
+            pass
+
+    request_func = get_request
+    if request_type == "POST":
+        request_func = post_request
+    if request_type == "CURRENCY":
+        request_func = currency_request
+    if request_type == "ADD_TO_CART":
+        request_func = add_to_cart
+    if request_type == "CHECKOUT":
+        request_func = currency_request
+
     with ThreadPoolExecutor(max_workers=threads) as p:
         current = datetime.now()
         end = current + timedelta(seconds=run_time)
@@ -212,6 +267,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
         log.error("Kubernetes is not set up."
                   " Did you run the deployment script?")
         return util.EXIT_FAILURE
+
 
     custom = kwargs.get("custom")
     request = kwargs.get("request")
@@ -254,7 +310,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
             log.info("Running locust...")
             res = run_locust(f"http://{gateway_url}", platform, command_args,
-                             application, fname)
+                             application, fname, run_time, kwargs.get("num_users"), kwargs.get("spawn_rate"))
             if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
@@ -281,7 +337,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
     graph_output = f"{custom} {application} {timestamp}"
     util.check_dir(NPY_DIR)
     if custom == "locust":
-        locust_df = transform_locust_data(filters, application, path)
+        locust_df = transform_locust_data(filters, application)
         np.save(npy_file_dir, locust_df)
         return plot(locust_df, filters, graph_output, custom)
     elif custom == "fortio":
@@ -307,8 +363,9 @@ def main(args):
                            request=args.request,
                            command_args=args.command_args,
                            custom=args.custom.lower(),
-                           plot_name=args.plot_name)
-
+                           plot_name=args.plot_name,
+                           num_users=args.users,
+                           spawn_rate=args.spawn_rate)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -340,7 +397,7 @@ if __name__ == '__main__':
     parser.add_argument("-fds",
                         "--filter-dirs",
                         dest="filter_dirs",
-                        nargs="+",
+                        nargs="*",
                         type=str,
                         default=[str(FILTER_DIR)],
                         help="List of directories of the filter")
@@ -354,7 +411,7 @@ if __name__ == '__main__':
                         "--users",
                         dest="users",
                         type=int,
-                        default=10,
+                        default=50,
                         help="Number of users to spawn")
     parser.add_argument("-sr",
                         "--spawn-rate",
@@ -372,8 +429,8 @@ if __name__ == '__main__':
                         "--time",
                         dest="time",
                         type=int,
-                        default=120,
-                        help="Time for fortio")
+                        default=240,
+                        help="Time for load generator to run")
     parser.add_argument(
         "-a",
         "--application",
@@ -401,13 +458,18 @@ if __name__ == '__main__':
     parser.add_argument("-sp",
                         "--subpath",
                         dest="subpath",
-                        default="productpage",
+                        default="index.html",
                         help="Path of the application")
     parser.add_argument("-r",
                         "--request",
                         dest="request",
                         default="GET",
                         help="Request type")
+    parser.add_argument("-pl",
+                        "--plot_name",
+                        dest="plot_name",
+                        default="plot_name",
+                        help="Title of the plot to be created")
     parser.add_argument("-ar",
                         "--args",
                         dest="command_args",

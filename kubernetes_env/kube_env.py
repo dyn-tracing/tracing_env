@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import argparse
+import csv
+import time
 import logging
 import sys
 import os
@@ -28,8 +30,7 @@ CONFIG_MATRIX = {
     'BK': {
         'minikube_startup_command': "minikube start --cpus=2 --memory 4096 --disk-size 32g",
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=5 ",
+                                  --num-nodes=5 ",
         'deploy_cmd': f"{APPLY_CMD} {YAML_DIR}/bookinfo-services.yaml && \
                         {APPLY_CMD} {YAML_DIR}/bookinfo-apps.yaml && \
                         {APPLY_CMD} {ISTIO_DIR}/samples/bookinfo/networking/bookinfo-gateway.yaml && \
@@ -39,24 +40,21 @@ CONFIG_MATRIX = {
     'OB': {
         'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=5 ",
+                                  --num-nodes=7 ",
         'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
         'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
     },
     'HR': {
         'minikube_startup_command': None,
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=10 --num-nodes=7 ",
+                                  --num-nodes=7 ",
         'deploy_cmd': f"{APPLY_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
         'undeploy_cmd': f"{DELETE_CMD} {HOTEL_RESERVATION_DIR}/kubernetes ",
     },
     'TT': {
         'minikube_startup_command': None,
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --enable-autoscaling --min-nodes=3 \
-                                  --max-nodes=15 --num-nodes=8 ",
+                                  --num-nodes=8 ",
         'deploy_cmd': f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml > dpl1.yml && " +
                       f"{APPLY_CMD} dpl1.yml && " +
                       f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml > dpl2.yml && " +
@@ -315,20 +313,21 @@ def build_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
-    # Also build the aggregation filter
-    cmd = "cargo +nightly build -Z unstable-options "
-    cmd += "--target=wasm32-unknown-unknown --release "
-    cmd += f"--out-dir {filter_dir}/wasm_bins "
-    cmd += f"--target-dir {filter_dir}/target "
-    cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    # Also build the aggregation filter if it's not an empty or loop filter
+    if 'rs-empty-filter' not in str(filter_dir) and 'rs-loop-filter' not in str(filter_dir):
+        cmd = "cargo +nightly build -Z unstable-options "
+        cmd += "--target=wasm32-unknown-unknown --release "
+        cmd += f"--out-dir {filter_dir}/wasm_bins "
+        cmd += f"--target-dir {filter_dir}/target "
+        cmd += f"--manifest-path {filter_dir}/agg/Cargo.toml "
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
     log.info("Build successful!")
     return result
 
 
-def undeploy_filter():
+def undeploy_filter(platform, multizonal):
     # delete the config map
     delete_config_map()
     cmd = f"kubectl delete -f {YAML_DIR}/filter.yaml "
@@ -336,7 +335,7 @@ def undeploy_filter():
     if result != util.EXIT_SUCCESS:
         log.warning("Failed to delete the filter.")
     # restore the original bookinfo
-    return deploy_bookinfo()
+    return deploy_application()
 
 def patch_application():
     cmd = "kubectl get deploy -o name"
@@ -421,6 +420,7 @@ def deploy_filter(filter_dir):
 
 def refresh_filter(filter_dir):
 
+    start_time = time.time()
     # delete and recreate the config map
     update_conf_map(filter_dir)
 
@@ -440,6 +440,14 @@ def refresh_filter(filter_dir):
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
+    result = application_wait()
+    if result != util.EXIT_SUCCESS:
+        return result
+    end_time = time.time()
+    log.info("To update filter, took %d", end_time-start_time)
+    with open("update_times.csv", 'a+') as csv_file:
+        w = csv.writer(csv_file)
+        w.writerow([end_time-start_time])
     return application_wait()
 
 

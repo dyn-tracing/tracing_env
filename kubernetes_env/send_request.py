@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 def send_request(platform="MK"):
     _, _, gateway_url = kube_env.get_gateway_info(platform)
     url = f"http://{gateway_url}/productpage"
+    print("url: ", url)
     response = requests.get(url)
     return response
 

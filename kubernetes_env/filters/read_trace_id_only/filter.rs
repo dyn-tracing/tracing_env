@@ -120,13 +120,21 @@ impl HttpHeaders {
     }
 
     fn on_http_request_headers_inbound(&mut self) {
+            let trace_id = self
+            .get_http_request_header("x-request-id");
     }
     fn on_http_request_headers_outbound(&mut self) {
+            let trace_id = self
+            .get_http_request_header("x-request-id");
     }
 
-    fn on_http_response_headers_inbound(&mut self) {
+    fn on_http_response_headers_inbound(&mut self) {      
+            let trace_id = self                                                     
+            .get_http_response_header("x-request-id");
     }
 
     fn on_http_response_headers_outbound(&mut self) {
+            let trace_id = self
+            .get_http_response_header("x-request-id");
     }
 }
