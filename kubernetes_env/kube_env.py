@@ -418,6 +418,72 @@ def deploy_filter(filter_dir):
     return util.exec_process(cmd)
 
 
+def change_sha_in_yaml(filter_dir):
+    if not os.path.isfile(f"{filter_dir}wasm_bins/filter.wasm"):
+        build_filter(filter_dir)
+
+    # get the sha256sum
+    cmd = f"sha256sum {filter_dir}/wasm_bins/filter.wasm"
+    sha256hash = util.get_output_from_proc(cmd).split()[0].decode("utf-8").strip()
+    sha256hash = ' '.join(sha256hash.split('\x00')) + '\n'
+
+    data = []
+
+    yaml_file_name = f"{YAML_DIR}/filter.yaml"
+    with open(yaml_file_name, "r") as yaml_file:
+        data = yaml_file.readlines()
+
+        sha256lines = []
+        for line in range(len(data)):
+            if "sha256: " in data[line]:
+                sha256lines.append(line)
+        assert(len(sha256lines)==2)
+        for line in sha256lines:
+            # how much whitespace should I allocate before the line?
+            first_char = data[line].find('s')
+
+            # get rid of anything that isn't whitespace
+            new_line = data[line][0:first_char]
+
+            # add new sha hash
+            new_line = new_line + f"sha256: {sha256hash}"
+            data[line] = new_line
+
+        data = ''.join(data)
+
+    with open(yaml_file_name, "w") as yaml_file:
+        yaml_file.write(data)
+        
+def deploy_filter_in_place(filter_dir):
+    start_time = time.time()
+
+    # 1. Get the SHA, change the YAML
+    log.info("changing SHA in yaml")
+    change_sha_in_yaml(filter_dir)
+
+    # 2. port-forward
+    log.info("port forwarding")
+    storage_name = str(util.get_output_from_proc("kubectl get pods -o name -n storage").decode())
+    storage_name = storage_name[storage_name.find("/")+1:]
+    storage_name = storage_name.strip()
+    cmd = f"kubectl port-forward {storage_name} 8080:8080 -n storage &"
+    log.info("cmd: " + cmd)
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+
+    # 3. upload the filter
+    cmd = f"http -f POST :8080/upload_filter@{FILE_DIR}/{filter_dir}/wasm_bins/filter.wasm"
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+
+    # 4. apply YAML
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+
 def refresh_filter(filter_dir):
 
     start_time = time.time()
@@ -449,7 +515,6 @@ def refresh_filter(filter_dir):
         w = csv.writer(csv_file)
         w.writerow([end_time-start_time])
     return application_wait()
-
 
 def handle_filter(args):
     if args.build_filter:
@@ -500,6 +565,8 @@ def setup_application_deployment(platform, multizonal, application):
 
 def main(args):
     # single commands to execute
+    if args.deploy_filter_in_place:
+        return deploy_filter_in_place(args.filter_dir)
     if args.setup:
         return setup_application_deployment(args.platform, args.multizonal, args.application)
     if args.deploy_application:
@@ -586,6 +653,11 @@ if __name__ == '__main__':
     parser.add_argument("-df",
                         "--deploy-filter",
                         dest="deploy_filter",
+                        action="store_true",
+                        help="Deploy the WASM filter. ")
+    parser.add_argument("-dfip",
+                        "--deploy-filter-in-place",
+                        dest="deploy_filter_in_place",
                         action="store_true",
                         help="Deploy the WASM filter. ")
     parser.add_argument("-uf",
