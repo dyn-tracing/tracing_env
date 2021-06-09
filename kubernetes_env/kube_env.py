@@ -473,7 +473,8 @@ def deploy_filter_in_place(filter_dir):
         return result
 
     # 3. upload the filter
-    cmd = f"http -f POST :8080/upload_filter@{FILE_DIR}/{filter_dir}/wasm_bins/filter.wasm"
+    cmd = f"http -f POST :8080/upload filter@{FILE_DIR}/{filter_dir}/wasm_bins/filter.wasm"
+    log.info("cmd: " + cmd)
     result = util.exec_process(cmd)
     if result != util.EXIT_SUCCESS:
         return result
