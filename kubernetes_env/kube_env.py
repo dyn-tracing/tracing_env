@@ -453,15 +453,29 @@ def change_sha_in_yaml(filter_dir):
 
     with open(yaml_file_name, "w") as yaml_file:
         yaml_file.write(data)
-        
-def deploy_filter_in_place(filter_dir):
-    start_time = time.time()
 
+def upload_and_apply_filter(filter_dir):
     # 1. Get the SHA, change the YAML
     log.info("changing SHA in yaml")
     change_sha_in_yaml(filter_dir)
 
-    # 2. port-forward
+    # 2. upload the filter
+    cmd = f"http -f POST :8080/upload filter@{FILE_DIR}/{filter_dir}/wasm_bins/filter.wasm"
+    log.info("cmd: " + cmd)
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+
+    # 3. apply YAML
+    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
+    result = util.exec_process(cmd)
+    if result != util.EXIT_SUCCESS:
+        return result
+    
+def deploy_filter_in_place(filter_dir):
+    start_time = time.time()
+
+    # 1. port-forward
     log.info("port forwarding")
     storage_name = str(util.get_output_from_proc("kubectl get pods -o name -n storage").decode())
     storage_name = storage_name[storage_name.find("/")+1:]
@@ -472,18 +486,17 @@ def deploy_filter_in_place(filter_dir):
     if result != util.EXIT_SUCCESS:
         return result
 
-    # 3. upload the filter
-    cmd = f"http -f POST :8080/upload filter@{FILE_DIR}/{filter_dir}/wasm_bins/filter.wasm"
-    log.info("cmd: " + cmd)
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+    # 2. upload and apply
+    upload_and_apply_filter(filter_dir)
+    end_time = time.time()
+    log.info("Time to deploy filter: " + str(end_time-start_time))
 
-    # 4. apply YAML
-    cmd = f"kubectl apply -f {YAML_DIR}/filter.yaml"
-    result = util.exec_process(cmd)
-    if result != util.EXIT_SUCCESS:
-        return result
+def refresh_filter_in_place(filter_dir):
+    start_time = time.time()
+    upload_and_apply_filter(filter_dir)
+    end_time = time.time()
+    log.info("Time to deploy filter: " + str(end_time-start_time))
+
 
 def refresh_filter(filter_dir):
 
@@ -566,6 +579,8 @@ def setup_application_deployment(platform, multizonal, application):
 
 def main(args):
     # single commands to execute
+    if args.refresh_filter_in_place:
+        return refresh_filter_in_place(args.filter_dir)
     if args.deploy_filter_in_place:
         return deploy_filter_in_place(args.filter_dir)
     if args.setup:
@@ -661,6 +676,11 @@ if __name__ == '__main__':
                         dest="deploy_filter_in_place",
                         action="store_true",
                         help="Deploy the WASM filter. ")
+    parser.add_argument("-rfip",
+                        "--refresg-filter-in-place",
+                        dest="refresh_filter_in_place",
+                        action="store_true",
+                        help="Refresh the WASM filter. ")
     parser.add_argument("-uf",
                         "--undeploy-filter",
                         dest="undeploy_filter",
