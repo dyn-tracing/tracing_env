@@ -266,6 +266,7 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request inbound: x-request-id not found in header!")?;
+        log::warn!("in request header inbound");
 
         // Fetch ferried data
         let mut ferried_data = fetch_data_from_headers(self, HttpType::Request);
@@ -280,10 +281,12 @@ impl HttpHeaders {
         let trace_id = self
             .get_http_request_header("x-request-id")
             .ok_or_else(|| "Request outbound: x-request-id not found in header!")?;
+        log::warn!("in request header outbound");
         Ok(())
     }
 
     fn on_http_response_headers_inbound(&mut self, _num_headers: usize) -> Result<(), String> {
+        log::warn!("in response header inbound");
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response inbound: x-request-id not found in header!")?;
@@ -336,6 +339,7 @@ impl HttpHeaders {
             {
                 let value = get_value_for_storage(&self.target_graph, &mapping, &stored_data)
                     .ok_or_else(|| "Failed to retrieve value from storage.")?;
+                log::warn!("Trying to send a call to storage");
                 let call_result = self.dispatch_http_call(
                     "storage-upstream",
                     vec![
@@ -371,6 +375,7 @@ impl HttpHeaders {
     }
 
     fn on_http_response_headers_outbound(&mut self, _num_headers: usize) -> Result<(), String> {
+        log::warn!("in response header outbound");
         let trace_id = self
             .get_http_response_header("x-request-id")
             .ok_or_else(|| "Response outbound: x-request-id not found in header!")?;
