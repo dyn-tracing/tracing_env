@@ -14,7 +14,8 @@
 
 import random
 from locust import HttpUser, TaskSet, between
-
+import locust.stats
+#locust.stats.PERCENTILES_TO_REPORT = [0.1, 0.2, 0.3, 0.4, 0.50, 0.6, 0.7, 0.80, 0.90, 0.95, 0.98, 1]
 products = [
     '0PUK6V6EV0',
     '1YMWWN1N4O',
@@ -76,4 +77,4 @@ class UserBehavior(TaskSet):
 
 class WebsiteUser(HttpUser):
     tasks = [UserBehavior]
-    wait_time = between(1, 10)
+    wait_time = between(1, 5)

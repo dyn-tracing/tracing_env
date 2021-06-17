@@ -71,10 +71,10 @@ def plot(dfs, filters, plot_name, custom):
     return util.EXIT_SUCCESS
 
 
-def transform_locust_data(filters, application):
+def transform_locust_data(filters, application, output):
     dfs = []
     for fname in filters:
-        csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}")) 
+        csv_prefix = str(GRAPHS_DIR.joinpath(f"autoscaling_experiments/{application}_{output}")) 
         if fname != "no_filter":
           csv_prefix += f"_{fname}"
         csv_file_dir = str(FILE_DIR.joinpath(f"{csv_prefix}_stats.csv"))
@@ -92,12 +92,20 @@ def transform_locust_data(filters, application):
             }))
     return dfs
 
-def run_locust(url, platform, command_args, application, filename, run_time, num_users, spawn_rate):
+def run_locust(url, platform, command_args, application, filename, run_time, num_users, spawn_rate, output):
     py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
-    csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}"))
+    csv_prefix = str(GRAPHS_DIR.joinpath(f"autoscaling_experiments/{application}_{output}"))
     if filename != "no_filter":
       csv_prefix += f"_{filename}"
-    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix} --headless -t {run_time} -u {num_users} -r {spawn_rate}"
+
+    # let things autoscale
+    log.info("Warming up Locust")
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv startup_locust --headless -t 1000 -u {num_users} -r {spawn_rate}"
+    res = util.exec_process(cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+    log.info("Running Locust in steady state")
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix} --headless -t {run_time} -u {num_users} -r {num_users}"
     res = util.exec_process(cmd,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
@@ -310,7 +318,7 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
                 return util.EXIT_FAILURE
             log.info("Running locust...")
             res = run_locust(f"http://{gateway_url}", platform, command_args,
-                             application, fname, run_time, kwargs.get("num_users"), kwargs.get("spawn_rate"))
+                             application, fname, run_time, kwargs.get("num_users"), kwargs.get("spawn_rate"), output)
             if res != util.EXIT_SUCCESS:
                 log.error("Error benchmarking %s application", application)
                 return util.EXIT_FAILURE
@@ -331,13 +339,13 @@ def start_benchmark(filter_dirs, platform, threads, qps, run_time, **kwargs):
             return util.EXIT_FAILURE
 
     # Plot functions
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
-    npy_file = f"{custom} {application} {timestamp}"
+    timestamp = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime(time.time()))
+    npy_file = f"{custom}_{application}_{timestamp}_{output}"
     npy_file_dir = str(NPY_DIR.joinpath(npy_file))
-    graph_output = f"{custom} {application} {timestamp}"
+    graph_output = f"{custom}_{application}_{timestamp}_{output}"
     util.check_dir(NPY_DIR)
     if custom == "locust":
-        locust_df = transform_locust_data(filters, application)
+        locust_df = transform_locust_data(filters, application, output)
         np.save(npy_file_dir, locust_df)
         return plot(locust_df, filters, graph_output, custom)
     elif custom == "fortio":
@@ -421,7 +429,7 @@ if __name__ == '__main__':
                         help="Rate to spawn users")
     parser.add_argument("-qps",
                         "--query-per-second",
-                        dest="qps",
+                       dest="qps",
                         type=int,
                         default=10,
                         help="Query per second")
