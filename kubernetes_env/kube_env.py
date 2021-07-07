@@ -38,10 +38,11 @@ CONFIG_MATRIX = {
         'undeploy_cmd': f"{ISTIO_DIR}/samples/bookinfo/platform/kube/cleanup.sh" 
     },
     'OB': {
-        'minikube_startup_command': "minikube start --cpus=4 --memory 4096 --disk-size 32g",
-        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --num-nodes=7 ",
-        'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release ",
+        'minikube_startup_command': "minikube start --cpus=5 --memory 4096 --disk-size 32g",
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade --enable-autoscaling --min-nodes=5 --max-nodes=92 \
+                                  --num-nodes=7  --machine-type e2-highmem-4 ",
+        'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release  ",
+        #'deploy_cmd': f"gcloud auth configure-docker -q && cd {ONLINE_BOUTIQUE_DIR} skaffold run --default-repo=gcr.io/dynamic-tracing",
         'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
     },
     'HR': {
@@ -54,7 +55,7 @@ CONFIG_MATRIX = {
     'TT': {
         'minikube_startup_command': None,
         'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade \
-                                  --num-nodes=8 ",
+                                  --num-nodes=5 ", # used to be 8
         'deploy_cmd': f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part1.yml > dpl1.yml && " +
                       f"{APPLY_CMD} dpl1.yml && " +
                       f"{ISTIO_BIN} kube-inject -f {TRAIN_TICKET_DIR}/ts-deployment-part2.yml > dpl2.yml && " +
@@ -477,6 +478,20 @@ def deploy_application(application):
     cmd += f"{APPLY_CMD} {YAML_DIR}/root-cluster.yaml "
     result = util.exec_process(cmd)
     application_wait()
+    cmd = "kubectl get deployments -o name "
+    deployments = util.get_output_from_proc(cmd).decode("utf-8").strip()
+    deployments = deployments.split("\n")
+    log.info("Starting horizontal autoscaling")
+    for depl in deployments:
+        if "front" in depl:
+            cmd = f"kubectl autoscale {depl} --min=1 --max=30 --cpu-percent=40"
+        else:
+            cmd = f"kubectl autoscale {depl} --min=1 --max=10 --cpu-percent=40"
+        result = util.exec_process(cmd)
+        if result != util.EXIT_SUCCESS:
+            return result
+    application_wait()
+
     return result
 
 def remove_application(application):
