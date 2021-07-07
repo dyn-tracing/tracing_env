@@ -74,7 +74,7 @@ def plot(dfs, filters, plot_name, custom):
 def transform_locust_data(filters, application, output):
     dfs = []
     for fname in filters:
-        csv_prefix = str(GRAPHS_DIR.joinpath(f"autoscaling_experiments/{application}_{output}")) 
+        csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}_{output}")) 
         if fname != "no_filter":
           csv_prefix += f"_{fname}"
         csv_file_dir = str(FILE_DIR.joinpath(f"{csv_prefix}_stats.csv"))
