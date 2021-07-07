@@ -94,7 +94,7 @@ def transform_locust_data(filters, application, output):
 
 def run_locust(url, platform, command_args, application, filename, run_time, num_users, spawn_rate, output):
     py_file_dir = str(FILE_DIR.joinpath(f"{application}.py"))
-    csv_prefix = str(GRAPHS_DIR.joinpath(f"autoscaling_experiments/{application}_{output}"))
+    csv_prefix = str(GRAPHS_DIR.joinpath(f"{application}_{output}"))
     if filename != "no_filter":
       csv_prefix += f"_{filename}"
 
