@@ -10,7 +10,10 @@ cd ${FILE_DIR}/..
 # Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 set PATH $HOME/.cargo/bin $PATH
-rustup toolchain install 1.54
+# The antlr library (used for the compiler) doesn't work with newer versions
+# of nightly that have depricated the 'raw' feature.  Until they fix it,
+# use a slightly out of date version of Rust
+rustup override set nightly-2021-05-20
 rustup toolchain install nightly
 # we need to use nightly as default
 rustup default nightly
