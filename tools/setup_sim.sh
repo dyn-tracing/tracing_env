@@ -10,6 +10,7 @@ cd ${FILE_DIR}/..
 # Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 set PATH $HOME/.cargo/bin $PATH
+rustup toolchain install 1.54
 rustup toolchain install nightly
 # we need to use nightly as default
 rustup default nightly
