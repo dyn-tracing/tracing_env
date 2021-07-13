@@ -100,16 +100,14 @@ def run_locust(url, platform, command_args, application, filename, run_time, num
 
     # let things autoscale
     log.info("Warming up Locust")
-    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv startup_locust --headless -t 1000 -u {num_users} -r {spawn_rate}"
-    res = util.exec_process(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+    cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv startup_locust --headless -t 10 -u {num_users} -r {spawn_rate}"
+    res = util.get_output_from_proc(cmd)
     log.info("Running Locust in steady state")
     cmd = f"locust -f {py_file_dir} -H {url} {command_args} --csv {csv_prefix} --headless -t {run_time} -u {num_users} -r {num_users}"
-    res = util.exec_process(cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-    return res
+    res = util.get_output_from_proc(cmd)
+    with open(output+".csv", "a+") as output_file:
+        output_file.write(str(res))
+    return util.EXIT_SUCCESS
 
 
 def transform_fortio_data(filters):
