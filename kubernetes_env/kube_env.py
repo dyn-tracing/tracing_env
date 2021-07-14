@@ -39,10 +39,9 @@ CONFIG_MATRIX = {
     },
     'OB': {
         'minikube_startup_command': "minikube start --cpus=5 --memory 4096 --disk-size 32g",
-        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade --enable-autoscaling --min-nodes=5 --max-nodes=92 \
-                                  --num-nodes=7  --machine-type e2-highmem-4 ",
+        'gcloud_startup_command':"gcloud container clusters create demo --enable-autoupgrade --enable-autoscaling --min-nodes=3 --max-nodes=7 \
+                                  --num-nodes=3  --machine-type e2-highmem-4 ",
         'deploy_cmd': f"{APPLY_CMD} {ONLINE_BOUTIQUE_DIR}/release  ",
-        #'deploy_cmd': f"gcloud auth configure-docker -q && cd {ONLINE_BOUTIQUE_DIR} skaffold run --default-repo=gcr.io/dynamic-tracing",
         'undeploy_cmd': f"{DELETE_CMD} {ONLINE_BOUTIQUE_DIR}/release "
     },
     'HR': {
