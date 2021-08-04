@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import random
-from locust import HttpUser, TaskSet, between
-import locust.stats
-locust.stats.PERCENTILES_TO_REPORT = [0.10, 0.20, 0.30, 0.40, 0.50, 0.66, 0.75, 0.80, 0.90, 0.95, 0.98, 0.99, 0.999, 0.9999, 1.0]
+from locust import HttpUser, TaskSet, between, events
+import time
+import csv
+
+wait_time = 1
+start_time = 0
+stats = []
 products = [
     '0PUK6V6EV0',
     '1YMWWN1N4O',
@@ -28,25 +32,27 @@ products = [
     'OLJCESPC7Z']
 
 def index(l):
-    l.client.get("/")
+    l.client.get("/", context={"request_start_time": time.time()})
 
 def setCurrency(l):
     currencies = ['EUR', 'USD', 'JPY', 'CAD']
     l.client.post("/setCurrency",
-        {'currency_code': random.choice(currencies)})
+        {'currency_code': random.choice(currencies)},
+        context={"request_start_time": time.time()})
 
 def browseProduct(l):
-    l.client.get("/product/" + random.choice(products))
+    l.client.get("/product/" + random.choice(products), context={"request_start_time": time.time()})
 
 def viewCart(l):
-    l.client.get("/cart")
+    l.client.get("/cart", context={"request_start_time": time.time()})
 
 def addToCart(l):
     product = random.choice(products)
-    l.client.get("/product/" + product)
+    l.client.get("/product/" + product, context={"request_start_time": time.time()})
     l.client.post("/cart", {
         'product_id': product,
-        'quantity': random.choice([1,2,3,4,5,10])})
+        'quantity': random.choice([1,2,3,4,5,10])},
+    context={"request_start_time": time.time()})
 
 def checkout(l):
     addToCart(l)
@@ -61,7 +67,7 @@ def checkout(l):
         'credit_card_expiration_month': '1',
         'credit_card_expiration_year': '2039',
         'credit_card_cvv': '672',
-    })
+    }, context={"request_start_time": time.time()})
 
 class UserBehavior(TaskSet):
 
@@ -78,3 +84,26 @@ class UserBehavior(TaskSet):
 class WebsiteUser(HttpUser):
     tasks = [UserBehavior]
     wait_time = between(1, 3)
+
+@events.request.add_listener                                                    
+def on_request(request_type, name, response_time, response_length, response,    
+                   context, exception, **kwargs):                               
+    global stats
+    stats.append(["something"])
+    if start_time != 0 and time.time() > start_time:                            
+        request_start_time = context["request_start_time"]                      
+        stats.append([request_start_time, name, response_time, response.status_code])
+                                                                                
+@events.spawning_complete.add_listener                                          
+def set_recording_time(user_count, **kwargs):                                   
+    global start_time                                                           
+    stats.append(["something2"])
+    start_time = time.time() + wait_time # start recording stats at wait_time after Locust is fully running
+                                                                                
+@events.quitting.add_listener                                                   
+def write_to_csv(environment, **kwargs):                                        
+    global stats
+    with open("online_boutique_benchmark_results.csv", "a+") as csvfile:               
+        csvwriter = csv.writer(csvfile)                                         
+        for row in stats:                                                       
+            csvwriter.writerow(row)  
